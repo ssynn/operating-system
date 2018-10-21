@@ -1,0 +1,1 @@
+        self.setWindowFlags(Qt.FramelessWindowHint)
