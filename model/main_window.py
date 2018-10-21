@@ -29,6 +29,9 @@ class MainWindow(QMainWindow):
         self.time.timeout.connect(self.setTime)
         self.time.start(1000)
 
+        # 菜单
+        self.startMenuWidget = None
+
         self.setCentralWidget(self.body)
         self.setGeometry(300, 300, 1280, 720)
         self.setWindowIcon(QIcon('icon/windows.ico'))
@@ -38,7 +41,12 @@ class MainWindow(QMainWindow):
     def setDesk(self):
         self.desk = QWidget()
         self.desk.setObjectName('body')
+        self.desk.mousePressEvent = self.__deskClicked
         self.body.addWidget(self.desk)
+
+    def __deskClicked(self, e):
+        self.startMenuWidget.close()
+        print(123)
 
     def setMenuBar(self):
         self.start = QToolButton()
@@ -80,12 +88,16 @@ class MainWindow(QMainWindow):
         self.timeDisplay.setText(time)
 
     def startMenu(self):
-        deskSize = self.desk.size()
-        print(deskSize.size())
-        self.startMenuWidget = QWidget(self.desk)
-        self.startMenuWidget.setGeometry(0, 0, 200, 200)
+        if self.startMenuWidget is not None:
+            self.startMenuWidget.close()
+            self.startMenuWidget = None
+            return
+        deskHeight = self.desk.size().height()
+        self.startMenuWidget = QWidget()
+        self.startMenuWidget.setParent(self.desk)
+        self.startMenuWidget.setGeometry(0, deskHeight-400, 300, 400)
         self.startMenuWidget.setStyleSheet('''
-            background-color:black;
+            background-color:rgba(0, 0, 0, 0.3);
         ''')
         self.startMenuWidget.show()
 
@@ -112,6 +124,17 @@ class MainWindow(QMainWindow):
             QWidget#body{
                 border-image: url(icon/desk.jpg);
             }
+        ''')
+
+
+class StartMenu(QWidget):
+    def __init__(self, master):
+        super().__init__()
+        self.master = master
+        deskHeight = self.master.desk.size().height()
+        self.setGeometry(0, deskHeight-400, 200, 400)
+        self.setStyleSheet('''
+            background-color:rgba(0, 0, 0, 0.3);
         ''')
 
 
