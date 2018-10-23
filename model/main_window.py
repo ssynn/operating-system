@@ -1,14 +1,14 @@
 import sys
 from PyQt5.QtWidgets import (QWidget, QToolButton, QApplication, QMainWindow,
-                             QGridLayout, QSplitter, QVBoxLayout, QHBoxLayout,
-                             QFrame)
-from PyQt5.QtGui import QPalette, QColor, QBrush, QPixmap, QIcon
+                             QGridLayout, QSplitter)
+from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QSize, QTimer, QDateTime
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.startMenuWidget = None
         self.initUI()
 
     def initUI(self):
@@ -29,14 +29,13 @@ class MainWindow(QMainWindow):
         self.time.timeout.connect(self.setTime)
         self.time.start(1000)
 
-        # 菜单
-        self.startMenuWidget = None
-
         self.setCentralWidget(self.body)
-        self.setGeometry(300, 300, 1280, 720)
+        self.setGeometry(100, 100, 1280, 720)
         self.setWindowIcon(QIcon('icon/windows.ico'))
         self.setWindowTitle('MyWindows')
         self.show()
+        # 菜单
+        self.setMenuWidget()
 
     def setDesk(self):
         self.desk = QWidget()
@@ -45,8 +44,7 @@ class MainWindow(QMainWindow):
         self.body.addWidget(self.desk)
 
     def __deskClicked(self, e):
-        self.startMenuWidget.close()
-        print(123)
+        self.startMenuWidget.hide()
 
     def setMenuBar(self):
         self.start = QToolButton()
@@ -59,16 +57,19 @@ class MainWindow(QMainWindow):
         self.explorerButton.setIcon(QIcon('icon/explorer.ico'))
         self.explorerButton.setFixedSize(50, 50)
         self.explorerButton.setIconSize(QSize(30, 30))
+        self.explorerButton.clicked.connect(self.explorerStart)
 
         self.taskMangerButton = QToolButton()
-        self.taskMangerButton.setIcon(QIcon('icon/exe.ico'))
+        self.taskMangerButton.setIcon(QIcon('icon/task.ico'))
         self.taskMangerButton.setFixedSize(50, 50)
-        self.taskMangerButton.setIconSize(QSize(30, 30))
+        self.taskMangerButton.setIconSize(QSize(50, 50))
+        self.taskMangerButton.clicked.connect(self.taskMangerStart)
 
         self.timeDisplay = QToolButton()
         self.timeDisplay.setObjectName('timeDisplay')
         self.timeDisplay.setText(QDateTime.currentDateTime().toString('hh:mm\nyyyy/MM/dd'))
         self.timeDisplay.setFixedSize(QSize(100, 50))
+        self.timeDisplay.clicked.connect(self.timeWidget)
 
         self.menuBarLayout = QGridLayout()
         self.menuBarLayout.setContentsMargins(0, 0, 0, 0)
@@ -88,18 +89,61 @@ class MainWindow(QMainWindow):
         self.timeDisplay.setText(time)
 
     def startMenu(self):
-        if self.startMenuWidget is not None:
-            self.startMenuWidget.close()
-            self.startMenuWidget = None
+        deskHeight = self.desk.size().height()
+        self.startMenuWidget.setGeometry(0, deskHeight-400, 400, 400)
+        self.startMenuWidget.setHidden(not self.startMenuWidget.isHidden())
+
+    # 设置菜单
+    def setMenuWidget(self):
+        self.startMenuWidget = QWidget()
+        self.startMenuWidget.setParent(self)
+
+        offButton = QToolButton()
+        offButton.setIcon(QIcon('icon/off.png'))
+        offButton.setIconSize(QSize(40, 40))
+
+        exploreButton = QToolButton()
+        exploreButton.setIcon(QIcon('icon/explorer.ico'))
+        exploreButton.setIconSize(QSize(40, 40))
+        exploreButton.setFixedSize(350, 50)
+        # exploreButton.set
+
+        self.startMenuWidgetLayout = QGridLayout()
+        self.startMenuWidgetLayout.setContentsMargins(0, 0, 0, 0)
+        self.startMenuWidgetLayout.addWidget(offButton, 0, 0, 5, 1)
+        self.startMenuWidgetLayout.addWidget(exploreButton, 0, 1, 1, 3)
+        self.startMenuWidget.setLayout(self.startMenuWidgetLayout)
+        self.startMenuWidget.setStyleSheet('''
+            QWidget{
+                background-color: rgba(0, 0, 0, 0.5);
+            }
+            QToolButton{
+                background-color:rgba(0, 0, 0, 0);
+            }
+            QToolButton:hover{
+                background-color: rgba(255, 255, 255, 0.1);
+            }
+        ''')
+
+
+    # 改变窗体大小时触发
+    def resizeEvent(self, e):
+        if self.startMenuWidget is None:
             return
         deskHeight = self.desk.size().height()
-        self.startMenuWidget = QWidget()
-        self.startMenuWidget.setParent(self.desk)
-        self.startMenuWidget.setGeometry(0, deskHeight-400, 300, 400)
-        self.startMenuWidget.setStyleSheet('''
-            background-color:rgba(0, 0, 0, 0.3);
-        ''')
-        self.startMenuWidget.show()
+        self.startMenuWidget.setGeometry(0, deskHeight-400, 400, 400)
+
+    # 开启文件管理器 ------------------
+    def taskMangerStart(self):
+        print('task')
+
+    # 开启任务管理器 ------------------
+    def explorerStart(self):
+        print('explorer')
+
+    # 时间详情 -----------------------
+    def timeWidget(self):
+        print('time')
 
     def setMyStyle(self):
         self.menuBar.setStyleSheet('''
@@ -124,17 +168,6 @@ class MainWindow(QMainWindow):
             QWidget#body{
                 border-image: url(icon/desk.jpg);
             }
-        ''')
-
-
-class StartMenu(QWidget):
-    def __init__(self, master):
-        super().__init__()
-        self.master = master
-        deskHeight = self.master.desk.size().height()
-        self.setGeometry(0, deskHeight-400, 200, 400)
-        self.setStyleSheet('''
-            background-color:rgba(0, 0, 0, 0.3);
         ''')
 
 

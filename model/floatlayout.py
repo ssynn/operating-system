@@ -94,27 +94,18 @@ class FlowLayout(QLayout):
         return height
 
     def setGeometry(self, rect):
-
         super(FlowLayout, self).setGeometry(rect)
-
         self.doLayout(rect, False)
 
     def sizeHint(self):
-
         return self.minimumSize()
 
     def minimumSize(self):
-
         size = QSize(146, 176)
-
         for item in self.itemList:
-
             size = size.expandedTo(item.minimumSize())
-
         margin, _, _, _ = self.getContentsMargins()
-
         size += QSize(2 * margin, 2 * margin)
-
         return size
 
     def doLayout(self, rect, testOnly):
