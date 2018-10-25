@@ -3,18 +3,20 @@ import os
 from PyQt5.QtWidgets import (QWidget, QToolButton, QApplication,
                              QDesktopWidget, QGridLayout, QSplitter,
                              QTreeWidget, QTreeWidgetItem, QMenu, QAction,
-                             QHBoxLayout, QLineEdit)
+                             QHBoxLayout, QLineEdit, QInputDialog, QMessageBox)
 from PyQt5.QtGui import QIcon, QFont, QCursor
-from PyQt5.QtCore import QSize, Qt, QPoint
-# from model import floatlayout as fl
-# from model import text_edit as te
-import floatlayout as fl
-import text_edit as te
+from PyQt5.QtCore import QSize, Qt, QPoint, pyqtSignal
+from model import floatlayout as fl
+from model import text_edit as te
+# import floatlayout as fl
+# import text_edit as te
 
 
 class Explorer(QWidget):
+    after_close_signal = pyqtSignal()
     def __init__(self):
         super().__init__()
+        self.path = 'C:/'
         self.initUI()
 
     def initUI(self):
@@ -142,14 +144,20 @@ class Explorer(QWidget):
         ''')
         self.mainContent.addWidget(self.executeBar, 0, 7, 1, 3)
 
-    # 执行语句方法  待完成
+    # 关闭动作
+    def closeEvent(self, e):
+        self.after_close_signal.emit()
+
+    # 执行语句方法  待完成 -----------------------------------------------
     def execute(self):
         print(self.executeBar.text())
 
 
+# 传入explorer类, 用path创建界面中的按钮
 class MyTreeView(QTreeWidget):
-    def __init__(self, master):
+    def __init__(self, master, path: str=''):
         super().__init__()
+        self.path = path
         self.master = master
         self.setHeaderHidden(True)
         self.setColumnCount(1)
@@ -228,10 +236,6 @@ class FileWidget(QWidget):
         self.text_edit = te.TextEdit(self.buttonList)
         self.text_edit.after_close.connect(self.addButton)
 
-    # 新建文件夹
-    def newFolderFunction(self):
-        pass
-
     # 创建按钮
     def createButton(self, name: str='', text: str=''):
         button = MyButton(self)
@@ -244,12 +248,25 @@ class FileWidget(QWidget):
         ext = os.path.splitext(name)[1]
         if ext == '.exe':
             button.setIcon(QIcon('icon/exe.ico'))
-        else:
+        elif ext == '.txt':
             button.setIcon(QIcon('icon./text.ico'))
+        else:
+            button.setIcon(QIcon('icon/empty.ico'))
 
         return button
 
-    # 把按钮加入界面
+    # 创建文件夹按钮
+    def createFolderButton(self, name: str):
+        button = MyButton(self, 'folder')
+        button.setText(name)
+        button.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        button.setFont(QFont("Malgun Gothic", 10))
+        button.setFixedSize(120, 150)
+        button.setIconSize(QSize(120, 120))
+        button.setIcon(QIcon('icon/file3'))
+        return button
+
+    # 把按钮加入界面, 并存入ButtonList数组
     def addButton(self, mes: list):
         btn = self.createButton(mes[0], mes[1])
         self.buttonList.append(btn)
@@ -270,15 +287,30 @@ class FileWidget(QWidget):
             contextMenu.addAction(self.newFolder())
             contextMenu.exec_(e.globalPos())
 
+    # 新建文件夹 ---------------------------------------------------
+    def newFolderFunction(self):
+        text, ok = QInputDialog.getText(self, '新的文件夹', '输入文件夹名:')
+        for i in self.buttonList:
+            if i.text() == text:
+                msgBox = QMessageBox(QMessageBox.Warning, "警告!", '文件夹名重复!', QMessageBox.NoButton, self)
+                msgBox.addButton("确认", QMessageBox.AcceptRole)
+                msgBox.exec_()
+                return
+        if ok and len(text) != 0:
+            btn = self.createFolderButton(text)
+            self.buttonList.append(btn)
+            self.body.addWidget(btn)
+
     def testFunction(self):
         self.addButton(['a.exe', 'sadadsad'])
         self.addButton(['b.txt', 'ddddddddd'])
 
 
 class MyButton(QToolButton):
-    def __init__(self, master):
+    def __init__(self, master, buttonType: str='file'):
         super().__init__()
         self.master = master
+        self.buttonType = buttonType
         self.setStyleSheet('''
             QToolButton:hover{
                 background-color: #e5f3ff;
@@ -287,7 +319,11 @@ class MyButton(QToolButton):
 
     # 双击
     def mouseDoubleClickEvent(self, e):
-        self.editMenuFunction()
+        if self.buttonType == 'file':
+            self.editMenuFunction()
+        # 文件夹双击方法 未完成----------------------------
+        else:
+            print('fold')
 
     # 单击
     def mousePressEvent(self, e):
@@ -298,15 +334,20 @@ class MyButton(QToolButton):
 
     # 文件右键菜单
     def buttonContext(self):
+        print(self.buttonType)
         menu = QMenu()
-        menu.addAction(self.editMenu())
-        menu.addAction(self.cutMenu())
-        menu.addAction(self.copyMenu())
-        menu.addSeparator()
-        menu.addAction(self.deleteMenu())
-        menu.addAction(self.renameMenu())
-        menu.addSeparator()
-        menu.addAction(self.attributeMenu())
+        if self.buttonType == 'file':
+            menu.addAction(self.editMenu())
+            menu.addAction(self.cutMenu())
+            menu.addAction(self.copyMenu())
+            menu.addSeparator()
+            menu.addAction(self.deleteMenu())
+            menu.addAction(self.renameMenu())
+            menu.addSeparator()
+            menu.addAction(self.attributeMenu())
+        else:
+            menu.addAction(self.editMenu())
+            print('foldRightClick')
         menu.exec_(QCursor.pos())
 
     # 左键选中
@@ -331,6 +372,7 @@ class MyButton(QToolButton):
             }
         ''')
 
+    ##################### 以下功能全部没有做完
     # 编辑
     def editMenu(self):
         item = QAction('&修改(E)', self)
@@ -339,7 +381,7 @@ class MyButton(QToolButton):
 
     def editMenuFunction(self):
         content = 'asddsad'  # 这里应该是一个获取文本内容的方法 未完成
-        self.text_edit = te.TextEdit(self.master.rightWidget.buttonList, [self.text(), content])
+        self.text_edit = te.TextEdit(self.master.buttonList, [self.text(), content])
         # self.text_edit.after_close.connect() # 这里是一个保存文件的方法 未完成
 
     # 剪切

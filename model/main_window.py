@@ -1,4 +1,5 @@
 import sys
+from model import explorer
 from PyQt5.QtWidgets import (QWidget, QToolButton, QApplication, QMainWindow,
                              QGridLayout, QSplitter)
 from PyQt5.QtGui import QIcon
@@ -90,7 +91,7 @@ class MainWindow(QMainWindow):
 
     def startMenu(self):
         deskHeight = self.desk.size().height()
-        self.startMenuWidget.setGeometry(0, deskHeight-400, 400, 400)
+        self.startMenuWidget.setGeometry(0, deskHeight-400, 300, 400)
         self.startMenuWidget.setHidden(not self.startMenuWidget.isHidden())
 
     # 设置菜单
@@ -98,33 +99,49 @@ class MainWindow(QMainWindow):
         self.startMenuWidget = QWidget()
         self.startMenuWidget.setParent(self)
 
+        blank = QWidget()
+
         offButton = QToolButton()
         offButton.setIcon(QIcon('icon/off.png'))
         offButton.setIconSize(QSize(40, 40))
+        offButton.clicked.connect(self.close)
 
-        exploreButton = QToolButton()
-        exploreButton.setIcon(QIcon('icon/explorer.ico'))
-        exploreButton.setIconSize(QSize(40, 40))
-        exploreButton.setFixedSize(350, 50)
-        # exploreButton.set
+        explorerMenuButton = QToolButton()
+        explorerMenuButton.setIcon(QIcon('icon/explorer.ico'))
+        explorerMenuButton.setText(' 文件管理器')
+        explorerMenuButton.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        explorerMenuButton.setIconSize(QSize(40, 40))
+        explorerMenuButton.setFixedSize(250, 50)
+        explorerMenuButton.clicked.connect(self.explorerStart)
+
+        taskMangerMenuButton = QToolButton()
+        taskMangerMenuButton.setIcon(QIcon('icon/task.ico'))
+        taskMangerMenuButton.setText(' 资源管理器')
+        taskMangerMenuButton.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        taskMangerMenuButton.setIconSize(QSize(40, 40))
+        taskMangerMenuButton.setFixedSize(250, 50)
+        taskMangerMenuButton.clicked.connect(self.taskMangerStart)
 
         self.startMenuWidgetLayout = QGridLayout()
         self.startMenuWidgetLayout.setContentsMargins(0, 0, 0, 0)
-        self.startMenuWidgetLayout.addWidget(offButton, 0, 0, 5, 1)
-        self.startMenuWidgetLayout.addWidget(exploreButton, 0, 1, 1, 3)
+        self.startMenuWidgetLayout.addWidget(blank, 0, 0, 5, 1)
+        self.startMenuWidgetLayout.addWidget(offButton, 6, 0)
+        self.startMenuWidgetLayout.addWidget(explorerMenuButton, 0, 1, 1, 3)
+        self.startMenuWidgetLayout.addWidget(taskMangerMenuButton, 1, 1, 1, 3)
         self.startMenuWidget.setLayout(self.startMenuWidgetLayout)
         self.startMenuWidget.setStyleSheet('''
             QWidget{
                 background-color: rgba(0, 0, 0, 0.5);
             }
             QToolButton{
-                background-color:rgba(0, 0, 0, 0);
+                background-color: rgba(0, 0, 0, 0);
+                color:white;
+                font-family: 微软雅黑;
             }
             QToolButton:hover{
                 background-color: rgba(255, 255, 255, 0.1);
             }
         ''')
-
 
     # 改变窗体大小时触发
     def resizeEvent(self, e):
@@ -133,13 +150,23 @@ class MainWindow(QMainWindow):
         deskHeight = self.desk.size().height()
         self.startMenuWidget.setGeometry(0, deskHeight-400, 400, 400)
 
-    # 开启文件管理器 ------------------
+    # 文件管理器关闭
+    def explorerCloseEvent(self):
+        self.explorerButton.setStyleSheet('''''')
+
+    # 开启任务管理器 ------------------
     def taskMangerStart(self):
         print('task')
 
-    # 开启任务管理器 ------------------
+    # 开启文件管理器 ------------------
     def explorerStart(self):
-        print('explorer')
+        self.explorerButton.setStyleSheet('''
+            QToolButton{
+                border-bottom:3px solid #76b9ed;
+            }
+        ''')
+        exp = explorer.Explorer()
+        exp.after_close_signal.connect(self.explorerCloseEvent)
 
     # 时间详情 -----------------------
     def timeWidget(self):
@@ -153,6 +180,7 @@ class MainWindow(QMainWindow):
             QToolButton{
                 border:0px;
                 color:white;
+                border-bottom:3px solid black;
             }
             QToolButton:hover{
                 background-color: #414141;
