@@ -45,9 +45,9 @@ import json
 
 # 创建文件
 def mkfile(mes: dict):
-    file_tree = getTree()
-    path = mes['path'].split('/')
-    
+    # file_tree = getTree()
+    # path = mes['path'].split('/')
+    pass
 
 
 # 创建文件夹
@@ -155,5 +155,3 @@ if __name__ == '__main__':
         'edit_time': time.strftime('%Y-%m-%d %H:%M:%S'),
         'read_only': 0
     }
-
-

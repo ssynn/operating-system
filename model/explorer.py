@@ -3,9 +3,9 @@ import os
 from PyQt5.QtWidgets import (QWidget, QToolButton, QApplication,
                              QDesktopWidget, QGridLayout, QSplitter,
                              QTreeWidget, QTreeWidgetItem, QMenu, QAction,
-                             QHBoxLayout, QLineEdit, QInputDialog, QMessageBox)
+                             QLineEdit, QInputDialog, QMessageBox)
 from PyQt5.QtGui import QIcon, QFont, QCursor
-from PyQt5.QtCore import QSize, Qt, QPoint, pyqtSignal
+from PyQt5.QtCore import QSize, Qt, pyqtSignal
 from model import floatlayout as fl
 from model import text_edit as te
 # import floatlayout as fl
@@ -14,6 +14,7 @@ from model import text_edit as te
 
 class Explorer(QWidget):
     after_close_signal = pyqtSignal()
+
     def __init__(self):
         super().__init__()
         self.path = 'C:/'
@@ -372,7 +373,7 @@ class MyButton(QToolButton):
             }
         ''')
 
-    ##################### 以下功能全部没有做完
+    # 以下功能全部没有做完 ########################################
     # 编辑
     def editMenu(self):
         item = QAction('&修改(E)', self)

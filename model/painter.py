@@ -1,6 +1,6 @@
 import sys
-from PyQt5.QtWidgets import QWidget, QApplication, QGridLayout
-from PyQt5.QtGui import QPainter, QColor, QBrush
+from PyQt5.QtWidgets import QWidget, QApplication
+from PyQt5.QtGui import QPainter, QColor
 
 
 class Example(QWidget):

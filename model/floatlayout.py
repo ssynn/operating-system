@@ -1,7 +1,7 @@
 import os
 from PyQt5.QtCore import QPoint, QRect, QSize, Qt
 from PyQt5.QtGui import QIcon, QFont
-from PyQt5.QtWidgets import (QApplication, QLayout, QPushButton, QSizePolicy,
+from PyQt5.QtWidgets import (QApplication, QLayout, QSizePolicy,
                              QWidget, QToolButton)
 
 
@@ -25,7 +25,7 @@ class Window(QWidget):
         self.setLayout(flowLayout)
 
         self.setWindowTitle("Flow Layout")
-    
+
     def addButton(self, name: str, text: str):
         button = QToolButton()
         button.setText(name)
@@ -35,7 +35,6 @@ class Window(QWidget):
         button.setIconSize(QSize(120, 120))
         return button
         # button.clicked.connect(self.leftClicked)
-
 
         ext = os.path.splitext(name)[1]
         if ext == '.exe':
@@ -148,15 +147,10 @@ class FlowLayout(QLayout):
         return y + lineHeight - rect.y()
 
 
-
 if __name__ == '__main__':
 
     import sys
-
     app = QApplication(sys.argv)
-
     mainWin = Window()
-
     mainWin.show()
-
     sys.exit(app.exec_())
