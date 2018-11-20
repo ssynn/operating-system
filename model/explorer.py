@@ -156,7 +156,7 @@ class Explorer(QWidget):
 
 # 传入explorer类, 用path创建界面中的按钮
 class MyTreeView(QTreeWidget):
-    def __init__(self, master, path: str=''):
+    def __init__(self, master, path: str = ''):
         super().__init__()
         self.path = path
         self.master = master
@@ -238,7 +238,7 @@ class FileWidget(QWidget):
         self.text_edit.after_close.connect(self.addButton)
 
     # 创建按钮
-    def createButton(self, name: str='', text: str=''):
+    def createButton(self, name: str = '', text: str = ''):
         button = MyButton(self)
         button.setText(name)
         button.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
@@ -281,6 +281,9 @@ class FileWidget(QWidget):
                 QToolButton{
                     background-color:white;
                 }
+                QToolButton:hover{
+                    background-color: #e5f3ff;
+                }
                 ''')
         else:
             contextMenu = QMenu(self)
@@ -293,7 +296,8 @@ class FileWidget(QWidget):
         text, ok = QInputDialog.getText(self, '新的文件夹', '输入文件夹名:')
         for i in self.buttonList:
             if i.text() == text:
-                msgBox = QMessageBox(QMessageBox.Warning, "警告!", '文件夹名重复!', QMessageBox.NoButton, self)
+                msgBox = QMessageBox(
+                    QMessageBox.Warning, "警告!", '文件夹名重复!', QMessageBox.NoButton, self)
                 msgBox.addButton("确认", QMessageBox.AcceptRole)
                 msgBox.exec_()
                 return
@@ -308,7 +312,7 @@ class FileWidget(QWidget):
 
 
 class MyButton(QToolButton):
-    def __init__(self, master, buttonType: str='file'):
+    def __init__(self, master, buttonType: str = 'file'):
         super().__init__()
         self.master = master
         self.buttonType = buttonType
@@ -382,7 +386,8 @@ class MyButton(QToolButton):
 
     def editMenuFunction(self):
         content = 'asddsad'  # 这里应该是一个获取文本内容的方法 未完成
-        self.text_edit = te.TextEdit(self.master.buttonList, [self.text(), content])
+        self.text_edit = te.TextEdit(
+            self.master.buttonList, [self.text(), content])
         # self.text_edit.after_close.connect() # 这里是一个保存文件的方法 未完成
 
     # 剪切

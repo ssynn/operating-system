@@ -8,6 +8,7 @@ class Terminal(QTextEdit):
     def __init__(self):
         super().__init__()
         self.headText = r'C:\>'
+        self.maxLine = 3
         self.setText('SSYNN Operating System [版本 1.0]\n2018 824063458@qq.com 保留所有权利。\n')
         self.append(self.headText)
         self.toEnd()
@@ -18,25 +19,34 @@ class Terminal(QTextEdit):
         self.resize(800, 700)
         self.setMyStyle()
 
+    def mousePressEvent(self, e):
+        pass
+
+    def mouseDoubleClickEvent(self, e):
+        pass
+
     def eventFilter(self, watched, e):
         if e.type() == QEvent.KeyPress:
             keyEvent = QKeyEvent(e)
-            # print(keyEvent.key())
+            # 如果光标位于不可编辑区则必须过滤所有按键操作
+            if self.getCursorPosition() < (self.maxLine, len(self.headText)):
+                return True
+            # 回车
             if keyEvent.key() == Qt.Key_Enter or keyEvent.key() == 16777220:
-                # print('Enter')
                 self.execute()
                 self.append(self.headText)
+                self.maxLine += 1
                 self.toEnd()
                 return True
-            elif keyEvent.key() == Qt.Key_Backspace:
-                # print('Backspace')
+            # 退格
+            if keyEvent.key() == Qt.Key_Backspace:
                 if self.getCursorPosition()[1] <= len(self.headText):
                     return True
-            elif keyEvent.key() == Qt.Key_Left:
-                # print('Left')
+            # 左键
+            if keyEvent.key() == Qt.Key_Left:
                 if self.getCursorPosition()[1] <= len(self.headText):
                     return True
-            elif keyEvent.key() == Qt.Key_Up:
+            if keyEvent.key() == Qt.Key_Up:
                 return True
         return False
 

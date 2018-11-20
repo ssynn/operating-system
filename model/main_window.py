@@ -1,5 +1,5 @@
 import sys
-from model import explorer
+from model import explorer, terminal, task_manger
 from PyQt5.QtWidgets import (QWidget, QToolButton, QApplication, QMainWindow,
                              QGridLayout, QSplitter)
 from PyQt5.QtGui import QIcon
@@ -61,9 +61,9 @@ class MainWindow(QMainWindow):
         self.explorerButton.clicked.connect(self.explorerStart)
 
         self.taskMangerButton = QToolButton()
-        self.taskMangerButton.setIcon(QIcon('icon/task.ico'))
+        self.taskMangerButton.setIcon(QIcon('icon/task.png'))
         self.taskMangerButton.setFixedSize(50, 50)
-        self.taskMangerButton.setIconSize(QSize(50, 50))
+        self.taskMangerButton.setIconSize(QSize(30, 30))
         self.taskMangerButton.clicked.connect(self.taskMangerStart)
 
         self.timeDisplay = QToolButton()
@@ -115,12 +115,20 @@ class MainWindow(QMainWindow):
         explorerMenuButton.clicked.connect(self.explorerStart)
 
         taskMangerMenuButton = QToolButton()
-        taskMangerMenuButton.setIcon(QIcon('icon/task.ico'))
+        taskMangerMenuButton.setIcon(QIcon('icon/task.png'))
         taskMangerMenuButton.setText(' 资源管理器')
         taskMangerMenuButton.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         taskMangerMenuButton.setIconSize(QSize(40, 40))
         taskMangerMenuButton.setFixedSize(250, 50)
         taskMangerMenuButton.clicked.connect(self.taskMangerStart)
+
+        terminalMenuButton = QToolButton()
+        terminalMenuButton.setIcon(QIcon('icon/terminal.ico'))
+        terminalMenuButton.setText(' 命令终端')
+        terminalMenuButton.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        terminalMenuButton.setIconSize(QSize(40, 40))
+        terminalMenuButton.setFixedSize(250, 50)
+        terminalMenuButton.clicked.connect(self.terminalStart)
 
         self.startMenuWidgetLayout = QGridLayout()
         self.startMenuWidgetLayout.setContentsMargins(0, 0, 0, 0)
@@ -128,6 +136,7 @@ class MainWindow(QMainWindow):
         self.startMenuWidgetLayout.addWidget(offButton, 6, 0)
         self.startMenuWidgetLayout.addWidget(explorerMenuButton, 0, 1, 1, 3)
         self.startMenuWidgetLayout.addWidget(taskMangerMenuButton, 1, 1, 1, 3)
+        self.startMenuWidgetLayout.addWidget(terminalMenuButton, 2, 1, 1, 3)
         self.startMenuWidget.setLayout(self.startMenuWidgetLayout)
         self.startMenuWidget.setStyleSheet('''
             QWidget{
@@ -148,25 +157,42 @@ class MainWindow(QMainWindow):
         if self.startMenuWidget is None:
             return
         deskHeight = self.desk.size().height()
-        self.startMenuWidget.setGeometry(0, deskHeight-400, 400, 400)
+        self.startMenuWidget.setGeometry(0, deskHeight-400, 300, 400)
 
     # 文件管理器关闭
     def explorerCloseEvent(self):
         self.explorerButton.setStyleSheet('''''')
 
+    # 资源管理器关闭
+    def taskManagerCloseEvent(self):
+        self.taskMangerButton.setStyleSheet('''''')
+
     # 开启任务管理器 ------------------
     def taskMangerStart(self):
-        print('task')
+        self.taskMangerButton.setStyleSheet('''
+            QToolButton{
+                border-bottom:3px solid #76b9ed;
+                background-color: rgba(50, 50, 50);
+            }
+        ''')
+        exp = task_manger.TaskManger()
+        exp.after_close_signal.connect(self.taskManagerCloseEvent)
 
     # 开启文件管理器 ------------------
     def explorerStart(self):
         self.explorerButton.setStyleSheet('''
             QToolButton{
                 border-bottom:3px solid #76b9ed;
+                background-color: rgba(50, 50, 50);
             }
         ''')
         exp = explorer.Explorer()
         exp.after_close_signal.connect(self.explorerCloseEvent)
+    
+    # 打开终端 -----------------------
+    def terminalStart(self):
+        self.exp = terminal.Terminal()
+        self.exp.show()
 
     # 时间详情 -----------------------
     def timeWidget(self):

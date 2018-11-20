@@ -1,4 +1,0 @@
-StyleSheet('''
-        # *{
-        #     background-color:black;
-        # }''')

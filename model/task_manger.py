@@ -2,10 +2,12 @@ import sys
 from PyQt5.QtWidgets import (QApplication, QWidget, QGridLayout,
                              QHBoxLayout, QSplitter, QToolButton, QLabel, QVBoxLayout, QGroupBox)
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtCore import Qt, QSize, pyqtSignal
 
 
 class TaskManger(QWidget):
+
+    after_close_signal = pyqtSignal()
     def __init__(self):
         super().__init__()
         self.focus = 0
@@ -82,6 +84,7 @@ class TaskManger(QWidget):
         self.menu.setContentsMargins(0, 0, 0, 0)
         self.body.addWidget(self.menu)
 
+    # 切换视图事件
     def switch(self, index, btn):
         self.focus = index
         for i in self.btnList:
@@ -101,11 +104,15 @@ class TaskManger(QWidget):
         ''')
         self.setContent()
 
+    # 关闭事件
+    def closeEvent(self, e):
+        self.after_close_signal.emit()
+
     # 设置右侧信息页
     def setContent(self):
         if self.content is not None:
             self.content.deleteLater()
-        if self.focus == 0:
+        if self.focus == 0 or True:
             self.content = QWidget()
             print(self.focus)
         elif self.focus == 1:
