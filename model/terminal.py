@@ -1,14 +1,17 @@
 import sys
+import os
 from PyQt5.QtWidgets import QApplication, QTextEdit
 from PyQt5.QtGui import QTextCursor, QKeyEvent, QIcon
 from PyQt5.QtCore import Qt, QEvent
+import orders
 
 
 class Terminal(QTextEdit):
     def __init__(self):
         super().__init__()
-        self.headText = r'C:\>'
+        self.headText = r'C:/>'
         self.maxLine = 3
+        self.orders_log = OrderList()
         self.setText('SSYNN Operating System [版本 1.0]\n2018 824063458@qq.com 保留所有权利。\n')
         self.append(self.headText)
         self.toEnd()
@@ -47,6 +50,26 @@ class Terminal(QTextEdit):
                 if self.getCursorPosition()[1] <= len(self.headText):
                     return True
             if keyEvent.key() == Qt.Key_Up:
+                storeCursorPos = self.textCursor()
+                self.moveCursor(QTextCursor.End, QTextCursor.MoveAnchor)
+                self.moveCursor(QTextCursor.StartOfLine, QTextCursor.MoveAnchor)
+                self.moveCursor(QTextCursor.End, QTextCursor.KeepAnchor)
+                self.textCursor().removeSelectedText()
+                self.textCursor().deletePreviousChar()
+                self.setTextCursor(storeCursorPos)
+                self.append(self.headText+self.orders_log.perious())
+                self.toEnd()
+                return True
+            if keyEvent.key() == Qt.Key_Down:
+                storeCursorPos = self.textCursor()
+                self.moveCursor(QTextCursor.End, QTextCursor.MoveAnchor)
+                self.moveCursor(QTextCursor.StartOfLine, QTextCursor.MoveAnchor)
+                self.moveCursor(QTextCursor.End, QTextCursor.KeepAnchor)
+                self.textCursor().removeSelectedText()
+                self.textCursor().deletePreviousChar()
+                self.setTextCursor(storeCursorPos)
+                self.append(self.headText+self.orders_log.next())
+                self.toEnd()
                 return True
         return False
 
@@ -67,8 +90,15 @@ class Terminal(QTextEdit):
 
     def execute(self):
         temp = self.toPlainText().split('\n')[-1]
-        temp = temp.replace(self.headText, '')
-        print(temp.split())
+        self.orders_log.put(temp.split('>')[1])
+        ans = orders.parser(temp)
+        if ans and ans[0] == 'display':
+            self.append(ans[1])
+        elif ans and ans[0] == 'path':
+            if len(ans[1]) == 2:
+                ans[1] += '/'
+            ans[1] += '>'
+            self.headText = ans[1]
 
     def setMyStyle(self):
         self.setStyleSheet('''
@@ -81,6 +111,31 @@ class Terminal(QTextEdit):
         }
         ''')
 
+
+class OrderList():
+    def __init__(self):
+        self.value = []
+        self.pointer = -1
+
+    def perious(self):
+        if len(self.value) == 0:
+            return ''
+        temp = self.value[self.pointer]
+        if self.pointer > 0:
+            self.pointer -= 1
+        return temp
+
+    def next(self):
+        if len(self.value) == 0:
+            return ''
+        temp = self.value[self.pointer]
+        if self.pointer < len(self.value)-1:
+            self.pointer += 1
+        return temp
+
+    def put(self, val: str):
+        self.value.append(val)
+        self.pointer += 1
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
