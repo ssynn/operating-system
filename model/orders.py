@@ -80,9 +80,9 @@ def __dir(path: str) -> str:
     for f in temp:
         # 文件夹
         if f['attribute'] == 8:
-            ans += f"   <DIR>          {f['name']}\n"
+            ans += "{0:17}    <DIR> {1:>15}   {2:3}\n".format(__to_time(f['time']),'-', f['name'])
         else:
-            ans += '  <FILE>{0:10}{1}\n'.format(f['length']*64, f['name'])
+            ans += '{0:17}    <FILE>{1:10}B  {2:3}\n'.format(__to_time(f['time']), f['length']*64, f['name'])
     if ans == '':
         ans = 'empty'
     return ans
@@ -116,12 +116,12 @@ def __rmdir(path: str, name: str) -> str:
         return 'Error!'
 
 
-# 移动文件夹
+# TODO 移动文件夹
 def __move(path: str, old: str, new: str):
     pass
 
 
-# 删除当前目录的空目录
+# TODO 删除当前目录的空目录
 def __rdir(path: str):
     pass
 
@@ -135,8 +135,21 @@ def __format(driver: str = 'C:') -> str:
     return driver
 
 
+# 把bytes转换为时间
+def __to_time(time: bytes) -> str:
+    '''
+    把5位的bytes串转换为 yyyy/MM/dd  hh:mm格式的字符串
+    '''
+    year = time[0]
+    month = time[1]
+    day = time[2]
+    hour = time[3]
+    minute = time[4]
+    return '2{0:0>3}/{1:02}/{2:02}  {3:02}:{4:02}'.format(year, month, day, hour, minute)
+
+
 if __name__ == "__main__":
     # while True:
     #     order = input()
     #     print(parser(order))
-    __dir()
+    print(__to_time(b'\x12\x0c\x04\x10)'))
