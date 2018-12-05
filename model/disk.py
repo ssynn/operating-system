@@ -24,7 +24,7 @@
 import time
 
 
-# TODO 创建文件
+# 创建文件
 def create_file(info: dict) -> bool:
     '''
     传入字典{
@@ -41,7 +41,6 @@ def create_file(info: dict) -> bool:
     判断当前目录块是否满
     如果是根目录并且已经满了则不能再创建目录返回False
     如果是普通目录并且已满则为当前目录申请新的磁盘块，如果失败返回False
-    TODO
     把文件分割成多个长度为64的块
     尝试申请对应的盘块数量，失败则返回False
     在内存里的表更新表项
@@ -59,7 +58,7 @@ def create_file(info: dict) -> bool:
     if parent_block == -1:
         return False
     # 查重
-    if duplicate_checking(info['path'], info['name'], info['attribute']):
+    if duplicate_checking(info['path'], format_name(info['name']), info['attribute']):
         return False
     # 在父磁盘块内找一个空位置
     while True:
@@ -68,10 +67,10 @@ def create_file(info: dict) -> bool:
                 break
             if disk[parent_block][inner_pointer*8+5] == 48:
                 break
-        if disk[parent_block//64][parent_block % 64] == 129:
+        if disk[parent_block // 64][parent_block % 64] == 129:
             break
         # 需要扫描所有分配给目录的表项
-        parent_block = disk[parent_block//64][parent_block % 64]
+        parent_block = disk[parent_block // 64][parent_block % 64]
     # 父文件块已满, 当前是根目录，不能再申请文件夹
     if inner_pointer == 8 and len(path_list) == 1:
             return False
@@ -84,13 +83,13 @@ def create_file(info: dict) -> bool:
             return False
         # 把原父表项的内容改为找到的空表项的地址
         disk[parent_block // 64] = assign(
-            disk[parent_block//64],
+            disk[parent_block // 64],
             parent_block % 64,
             empty_pointer_parent
         )
         # 再文件表项内分配磁盘块
         disk[empty_pointer_parent // 64] = assign(
-            disk[empty_pointer_parent//64],
+            disk[empty_pointer_parent // 64],
             empty_pointer_parent % 64,
             129
         )
@@ -99,10 +98,9 @@ def create_file(info: dict) -> bool:
 
     time_now = [int(i) for i in time.strftime('%Y %m %d %H %M').split()]
     time_now[0] -= 2000
+    info['length'] = len(info['text'].encode())
     text = bytes(time_now) + info['text'].encode()
     text = divide(text)
-    while len(text[-1]) < 64:
-        text[-1] += ' '.encode()
     pointer_list = []
     for i in range(len(text)):
         # 找一块空闲的磁盘块给文件本体
@@ -132,11 +130,11 @@ def create_file(info: dict) -> bool:
         # 把目录控制块写入父磁盘块
         f.seek(parent_block*66 + inner_pointer*8)
         f.write(file_to_bytes(
-            info['name'],
+            format_name(info['name']),
             info['ext'],
             info['attribute'],
             pointer_list[0],
-            len(text)
+            info['length']
         ))
         # 在文件分配的磁盘块写入数据
         for index in range(len(text)):
@@ -145,12 +143,49 @@ def create_file(info: dict) -> bool:
     return True
 
 
-# TODO 删除文件
+# 删除文件
 def delete_file(path: str) -> bool:
     '''
-    传入文件路径
+    传入文件路径, 扩展名
+    获取自己占有的所有表项
+    把这些表项置0
+    最后删除父表项中的自己
     '''
-    pass
+    # 先检查目录是否存在
+    blocks = get_block(path, 4)
+    if blocks[0] == -1:
+        return False
+    if path[-1] == '/':
+        path = path[:-1]
+    path_list = path.split('/')
+    name = format_name(path_list[-1])
+    # 找到父块
+    with open('virtual_disk_' + path_list[0].lower()[0], 'rb+') as f:
+        data = f.read()
+    # 在父块内找到自己对应的位置
+    father_blocks = get_block(path_list[:-1])
+    for father_block in father_blocks:
+        is_find = False
+        for in_block_pointer in range(8):
+            if data[father_block*66 + in_block_pointer*8] == 130:
+                break
+            position = get_position(father_block, in_block_pointer)
+            if name == data[position: position + 3] and data[position + 5] in (3, 4, 5):
+                is_find = True
+                break
+        if is_find:
+            break
+    # 把修改写入文件
+    with open('virtual_disk_' + path_list[0].lower()[0], 'rb+') as f:
+        for block in blocks:
+            if block > 63:
+                block += 2
+            f.seek(block)
+            f.write(bytes([48]))
+        # 在父表项中删除自己的数据
+        f.seek(father_block*66 + in_block_pointer*8)
+        f.write(bytes([48]*8))
+    return True
 
 
 # TODO 修改文件
@@ -197,8 +232,8 @@ def copy_file(path: str, new_path: str) -> str:
 
 
 # 用文件信息生成8位bytes
-def file_to_bytes(name: str, ext: str, attr: int, address: int, length: int) -> bytes:
-    return '{0:3}{1:2}'.format(name, ext).encode() + bytes([attr, address, length])
+def file_to_bytes(name: bytes, ext: str, attr: int, address: int, length: int) -> bytes:
+    return name + '{0:2}'.format(ext).encode() + bytes([attr, address, length])
 
 
 # 获取文件列表
@@ -264,7 +299,7 @@ def delete_dir(path: str) -> bool:
     if path[-1] == '/':
         path = path[:-1]
     path_list = path.split('/')
-    name = '{0:3}'.format(path_list[-1])
+    name = format_name(path_list[-1])
     # 获取所有和子项
     children = list_dir(path)
     # 把当前目录内的子项删除
@@ -276,15 +311,15 @@ def delete_dir(path: str) -> bool:
     # 找到父块
     with open('virtual_disk_' + path_list[0].lower()[0], 'rb+') as f:
         data = f.read()
-    father_blocks = get_block(path_list[:-1])
     # 在父块内找到自己对应的位置
+    father_blocks = get_block(path_list[:-1])
     for father_block in father_blocks:
         is_find = False
         for in_block_pointer in range(8):
             if data[father_block*66 + in_block_pointer*8] == 130:
                 break
             position = get_position(father_block, in_block_pointer)
-            if name.encode() == data[position: position + 3] and data[position + 5] == 8:
+            if name == data[position: position + 3] and data[position + 5] == 8:
                 is_find = True
                 break
         if is_find:
@@ -305,7 +340,7 @@ def delete_dir(path: str) -> bool:
 
 
 # 创建文件夹
-def creat_dir(path: str) -> bool:
+def create_dir(path: str) -> bool:
     '''
     传入文件夹路径
     在传入文件名前应该提前做合法检查
@@ -317,7 +352,7 @@ def creat_dir(path: str) -> bool:
     '''
     path_list = path.split('/')
     new_dir = path_list[-1]
-    new_dir = '{0:3}'.format(new_dir)
+    new_dir = format_name(new_dir)
     path_list = path_list[:-1]
     # 载入整个磁盘
     disk = open_disk(path_list[0])
@@ -396,8 +431,8 @@ def creat_dir(path: str) -> bool:
 
 
 # 把文件名转换为8Byte串
-def dirname_to_bytes(name: str, start: int) -> bytes:
-    return "{0:<3}00{1:1}{2:1}\x00".format(name, bytes([8]).decode(), bytes([start]).decode()).encode()
+def dirname_to_bytes(name: bytes, start: int) -> bytes:
+    return name + bytes([48, 48, 8, start, 0])
 
 
 # 文件夹最后一部分，记录当前块产生的时间
@@ -477,8 +512,8 @@ def disk_table(disk: str = 'c') -> list:
     return data
 
 
-# 获取盘块号 TODO 可以查找文件
-def get_block(path) -> list:
+# 获取盘块号
+def get_block(path, attribute: int = 8) -> list:
     '''
     传入绝对路径可以为字符串或列表，返回当前目录占有的盘块号列表
     如果没有找到则返回[-1]
@@ -494,23 +529,32 @@ def get_block(path) -> list:
     pointer = 2
     data = open_disk(driver)
     table = data[:2]
+    # 匹配到查找目标第一个拥有的文件块
     for item in path_list[1:]:
         is_find = False
         while True:
             # 在当前目录块做匹配，如果没有找到对应的文件则返回-1
             for block_pointer in range(8):
                 # 文件名相等
-                item = '{0:3}'.format(item)
-                if item.encode() == data[pointer][block_pointer*8: block_pointer*8+3]:
-                    pointer = data[pointer][block_pointer*8 + 6]
-                    is_find = True
-                    break
+                item = format_name(item)
+                if item == data[pointer][block_pointer*8: block_pointer*8+3]:
+                    # 匹配到的文件夹
+                    if data[pointer][block_pointer*8+5] == attribute:
+                        pointer = data[pointer][block_pointer*8 + 6]
+                        is_find = True
+                        break
+                    # 匹配到的文件
+                    if data[pointer][block_pointer*8+5] != 8 and attribute != 8:
+                        pointer = data[pointer][block_pointer*8 + 6]
+                        is_find = True
+                        break
             # 当前文件夹没有使用后续表项
             if table[pointer//64][pointer % 64] == 129 or is_find:
                 break
             pointer = table[pointer//64][pointer % 64]
         if not is_find:
             return [-1]
+    # 找出本文件所有拥有的表项
     ans = [pointer]
     while table[pointer//64][pointer % 64] != 129:
         pointer = table[pointer//64][pointer % 64]
@@ -579,16 +623,16 @@ def get_position(block_pointer: int, inner_pointer: int) -> int:
 
 
 # 查重
-def duplicate_checking(path: str, name: str, attribute: int = 8) -> bool:
+def duplicate_checking(path: str, name, attribute: int = 8) -> bool:
     '''
     检查要创建的文件或者文件夹是否已经存在
     attribute默认为8代表文件夹
     否则为文件
     '''
     children = list_dir(path)
-    name = '{0:3}'.format(name)
+    name = format_name(name)
     for child in children:
-        if child['name'] == name:
+        if format_name(child['name']) == name:
             if child['attribute'] == attribute:
                 return True
             if child['attribute'] != 8 and attribute != 8:
@@ -596,12 +640,25 @@ def duplicate_checking(path: str, name: str, attribute: int = 8) -> bool:
     return False
 
 
+# 规范名字
+def format_name(name) -> bytes:
+    '''
+    传入字符串或bytes
+    返回长度为3的bytes
+    '''
+    if type(name) is str:
+        name = name.encode()
+    while len(name) < 3:
+        name += ' '.encode()
+    return name
+
+
 if __name__ == '__main__':
     temp_file = {
         'path': 'C:',
-        'name': 'aaa',
+        'name': 'a',
         'ext': 'tx',
-        'text': '',
+        'text': '大大大苏打    12313',
         'attribute': 4
     }
     # 打印磁盘
@@ -618,12 +675,12 @@ if __name__ == '__main__':
     #     print(dirname_to_bytes('aa', i), len(dirname_to_bytes('aa', i)))
 
     # 测试新建文件
-    # creat_dir('C:/a')
+    # create_dir('C:/a')
     # for i in range(120):
-    #     print(creat_dir('C:/a/'+str(i)))
+    #     print(create_dir('C:/a/'+str(i)))
 
     # 测试获取文件块
-    # print(get_block(['C:', 'a']))
+    # print(get_block(['C:', 'a'], attribute=4))
 
     # 读取文件列表
     # print(list_dir('C:/'))
@@ -634,3 +691,6 @@ if __name__ == '__main__':
 
     # 新建文件
     print(create_file(temp_file))
+    print(get_block(['C:', 'a'], 4))
+    print(delete_file('C:/a'))
+    print(get_block(['C:', 'a'], 4))

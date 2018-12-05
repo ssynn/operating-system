@@ -1,5 +1,4 @@
 import sys
-import os
 from PyQt5.QtWidgets import QApplication, QTextEdit
 from PyQt5.QtGui import QTextCursor, QKeyEvent, QIcon
 from PyQt5.QtCore import Qt, QEvent
@@ -136,6 +135,7 @@ class OrderList():
     def put(self, val: str):
         self.value.append(val)
         self.pointer += 1
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
