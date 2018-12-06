@@ -98,8 +98,11 @@ def create_file(info: dict) -> bool:
 
     time_now = [int(i) for i in time.strftime('%Y %m %d %H %M').split()]
     time_now[0] -= 2000
-    info['length'] = len(info['text'].encode())
     text = bytes(time_now) + info['text'].encode()
+    info['length'] = len(text)
+    # 数据长度超过255
+    if info['length'] > 255:
+        return False
     text = divide(text)
     pointer_list = []
     for i in range(len(text)):
@@ -143,10 +146,11 @@ def create_file(info: dict) -> bool:
     return True
 
 
-# 删除文件
+# TODO 删除文件
 def delete_file(path: str) -> bool:
     '''
-    传入文件路径, 扩展名
+    传入文件路径, 如
+    C:/a.tx
     获取自己占有的所有表项
     把这些表项置0
     最后删除父表项中的自己
@@ -211,16 +215,37 @@ def change(path: str, attr: int) -> bool:
 # TODO 打开文件
 def open_file(path: str) -> dict:
     '''
-    传入文件路径
+    传入文件路径如C:/a/a.tx
     返回文件信息{
         name: str,
         ext: str,
         text: str,
         time: str,
+        length: int,
         attribute: int
     }
     '''
-    pass
+    path_list = path.split('/')
+    name = path_list[-1]
+    name, ext = name.split('.')
+    blocks = get_block(path, 4)
+    if blocks[0] == -1:
+        return None
+    text = b''
+    with open('virtual_disk_' + path_list[0].lower()[0], 'rb+') as f:
+        for block in blocks:
+            f.seek(block*66)
+            text += f.read(64)
+    FCB = get_pointer(path, 4)[2]
+    length = FCB[-1]
+    return {
+        'name': name,
+        'ext': ext,
+        'text': text[5:length],
+        'time': text[:5],
+        'attribute': FCB[5],
+        'length': length
+    }
 
 
 # TODO 复制文件
@@ -324,11 +349,8 @@ def delete_dir(path: str) -> bool:
                 break
         if is_find:
             break
-    # 把修改写入文件
+    # 把修改写入文件, 不再抹去申请到的文件块内的内容
     with open('virtual_disk_' + path_list[0].lower()[0], 'rb+') as f:
-        for block in blocks:
-            f.seek(66*block)
-            f.write(bytes([48]*64))
         for block in blocks:
             if block > 63:
                 block += 2
@@ -424,6 +446,9 @@ def create_dir(path: str) -> bool:
         # 把目录控制块写入父磁盘块
         f.seek(parent_block*66+block_pointer*8)
         f.write(dirname_to_bytes(new_dir, empty_pointer))
+        # 先把申请到的盘块置0
+        f.seek(empty_pointer*66)
+        f.write(bytes([48]*64))
         # 再空闲盘块的最后一行写入创建时间
         f.seek(empty_pointer*66+56)
         f.write(get_time())
@@ -516,50 +541,142 @@ def disk_table(disk: str = 'c') -> list:
 def get_block(path, attribute: int = 8) -> list:
     '''
     传入绝对路径可以为字符串或列表，返回当前目录占有的盘块号列表
+    文件C:/a/a.tx attribute=4
+    文件夹C:/a    attribute=8
     如果没有找到则返回[-1]
     '''
     if type(path) is str:
         if path[-1] == '/':
-            path = path[:-2]
+            path = path[:-1]
         path_list = path.split('/')
     else:
         path_list = path
     driver = path_list[0]
+    # 文件路径和文件名需要分开匹配
+    if attribute != 8:
+        file_name = path_list[-1]
+        name, ext = file_name.split('.')
+        name = format_name(name)
+        ext = format_ext(ext)
+        path_list = path_list[:-1]
     # 指针指向根目录
-    pointer = 2
+    parent_block = 2
     data = open_disk(driver)
-    table = data[:2]
     # 匹配到查找目标第一个拥有的文件块
     for item in path_list[1:]:
         is_find = False
         while True:
             # 在当前目录块做匹配，如果没有找到对应的文件则返回-1
-            for block_pointer in range(8):
+            for inner_pointer in range(8):
                 # 文件名相等
                 item = format_name(item)
-                if item == data[pointer][block_pointer*8: block_pointer*8+3]:
+                if item == data[parent_block][inner_pointer*8: inner_pointer*8+3]:
                     # 匹配到的文件夹
-                    if data[pointer][block_pointer*8+5] == attribute:
-                        pointer = data[pointer][block_pointer*8 + 6]
-                        is_find = True
-                        break
-                    # 匹配到的文件
-                    if data[pointer][block_pointer*8+5] != 8 and attribute != 8:
-                        pointer = data[pointer][block_pointer*8 + 6]
+                    if data[parent_block][inner_pointer*8+5] == 8:
+                        parent_block = data[parent_block][inner_pointer*8 + 6]
                         is_find = True
                         break
             # 当前文件夹没有使用后续表项
-            if table[pointer//64][pointer % 64] == 129 or is_find:
+            if data[parent_block//64][parent_block % 64] == 129 or is_find:
                 break
-            pointer = table[pointer//64][pointer % 64]
+            parent_block = data[parent_block//64][parent_block % 64]
+        if not is_find and attribute != 8:
+            break
+        elif not is_find and attribute == 8:
+            return (-1)
+    # 如果目标是文件，最后要在当前目录块做匹配，如果没有找到对应的文件则返回-1
+    if attribute != 8:
+        is_find = False
+        while True:
+            # 在当前目录块做匹配，如果没有找到对应的文件则返回-1
+            for inner_pointer in range(8):
+                # 文件名和扩展名相等
+                start = inner_pointer*8
+                if name == data[parent_block][start: start+3] and ext == data[parent_block][start+3: start+5]:
+                    # 匹配到的文件夹
+                    parent_block = data[parent_block][inner_pointer*8 + 6]
+                    is_find = True
+                    break
+            # 当前文件夹没有使用后续表项
+            if data[parent_block//64][parent_block % 64] == 129 or is_find:
+                break
+            parent_block = data[parent_block//64][parent_block % 64]
         if not is_find:
             return [-1]
     # 找出本文件所有拥有的表项
-    ans = [pointer]
-    while table[pointer//64][pointer % 64] != 129:
-        pointer = table[pointer//64][pointer % 64]
-        ans.append(pointer)
+    ans = [parent_block]
+    while data[parent_block//64][parent_block % 64] != 129:
+        parent_block = data[parent_block//64][parent_block % 64]
+        ans.append(parent_block)
     return ans
+
+
+# 获取指针
+def get_pointer(path: str, attribute: int = 8) -> tuple:
+    '''
+    传入文件路径，如
+    C:/a
+    C:/a.tx
+    返回文件控制块所在的位置，以及文件控制块
+    (parent_block, inner_pointer, FCB)
+    '''
+    if type(path) is str:
+        if path[-1] == '/':
+            path = path[:-1]
+        path_list = path.split('/')
+    else:
+        path_list = path
+    driver = path_list[0]
+    # 文件路径和文件名需要分开匹配
+    if attribute != 8:
+        file_name = path_list[-1]
+        name, ext = file_name.split('.')
+        name = format_name(name)
+        ext = format_ext(ext)
+        path_list = path_list[:-1]
+    # 指针指向根目录
+    parent_block = 2
+    data = open_disk(driver)
+    # 匹配到查找目标第一个拥有的文件块
+    for item in path_list[1:]:
+        is_find = False
+        while True:
+            # 在当前目录块做匹配，如果没有找到对应的文件则返回-1
+            for inner_pointer in range(8):
+                # 文件名相等
+                item = format_name(item)
+                if item == data[parent_block][inner_pointer*8: inner_pointer*8+3]:
+                    # 匹配到的文件夹
+                    if data[parent_block][inner_pointer*8+5] == 8:
+                        is_find = True
+                        break
+            # 当前文件夹没有使用后续表项
+            if data[parent_block//64][parent_block % 64] == 129 or is_find:
+                break
+            parent_block = data[parent_block//64][parent_block % 64]
+        if not is_find and attribute != 8:
+            break
+        elif not is_find and attribute == 8:
+            return (-1)
+    # 如果目标是文件，最后要在当前目录块做匹配，如果没有找到对应的文件则返回-1
+    if attribute != 8:
+        is_find = False
+        while True:
+            # 在当前目录块做匹配，如果没有找到对应的文件则返回-1
+            for inner_pointer in range(8):
+                # 文件名和扩展名相等
+                start = inner_pointer*8
+                if name == data[parent_block][start: start+3] and ext == data[parent_block][start+3: start+5]:
+                    # 匹配到的文件夹
+                    is_find = True
+                    break
+            # 当前文件夹没有使用后续表项
+            if data[parent_block//64][parent_block % 64] == 129 or is_find:
+                break
+            parent_block = data[parent_block//64][parent_block % 64]
+        if not is_find:
+            return [-1]
+    return (parent_block, inner_pointer, data[parent_block][inner_pointer*8: inner_pointer*8+8])
 
 
 # 格式化磁盘
@@ -622,12 +739,13 @@ def get_position(block_pointer: int, inner_pointer: int) -> int:
     return block_pointer*66 + inner_pointer * 8
 
 
-# 查重
+# TODO 查重
 def duplicate_checking(path: str, name, attribute: int = 8) -> bool:
     '''
     检查要创建的文件或者文件夹是否已经存在
     attribute默认为8代表文件夹
     否则为文件
+    判断是否重名会连扩展名包括在内一起判断
     '''
     children = list_dir(path)
     name = format_name(name)
@@ -653,6 +771,19 @@ def format_name(name) -> bytes:
     return name
 
 
+# 规范扩展名
+def format_ext(ext) -> bytes:
+    '''
+    传入长度小于3的扩展名，如 tx，t，ex
+    返回长度为2的bytes
+    '''
+    if type(ext) is str:
+        ext = ext.encode()
+    while len(ext) < 2:
+        ext += ' '.encode()
+    return ext
+
+
 if __name__ == '__main__':
     temp_file = {
         'path': 'C:',
@@ -668,7 +799,7 @@ if __name__ == '__main__':
     # print(open_disk())
 
     # 格式化磁盘
-    format_disk()
+    # format_disk()
 
     # 测试文件夹转换bytes
     # for i in range(8):
@@ -680,7 +811,7 @@ if __name__ == '__main__':
     #     print(create_dir('C:/a/'+str(i)))
 
     # 测试获取文件块
-    # print(get_block(['C:', 'a'], attribute=4))
+    print(get_block('C:/a.tx', 4))
 
     # 读取文件列表
     # print(list_dir('C:/'))
@@ -690,7 +821,10 @@ if __name__ == '__main__':
     # a = divide('1'*70)
 
     # 新建文件
-    print(create_file(temp_file))
-    print(get_block(['C:', 'a'], 4))
-    print(delete_file('C:/a'))
-    print(get_block(['C:', 'a'], 4))
+    # print(create_file(temp_file))
+
+    # 文件打开测试
+    print(open_file('C:/a/a.tx'))
+
+    # 获取指针测试
+    print(get_pointer('C:/a/aa.t', 4))

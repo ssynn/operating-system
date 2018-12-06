@@ -12,6 +12,8 @@ def parser(order: str) -> str:
     if order[1] == '':
         return ''
     path = order[0]
+    if path[-1] == '/':
+        path = path[:-1]
     order = order[1].lower().split()
     args = order[1:]
     order = order[0]
@@ -30,7 +32,7 @@ def parser(order: str) -> str:
             return ['path', ans]
         else:
             return ['display', ans]
-    if order == 'formate':
+    if order == 'format':
         if args == []:
             args = "C:"
         return ['path', __format(args)]
@@ -56,6 +58,8 @@ def parser(order: str) -> str:
         if args[0].count('.') != 1:
             return ['display', 'Not file name!']
         return ['display', __delete_file(path, args[0])]
+    if __is_file_name(order.split('/')[-1]):
+        return ['display', __open_file(path+'/'+order.split('/')[-1])]
     return ['display', order + '不是命令，也不是可执行的程序']
 
 
@@ -173,15 +177,14 @@ def __to_time(time: bytes) -> str:
 def __create_file(path: str, name: str, attribute: str = '4', text: str = '') -> str:
     '''
     创建文件
+    (C:/, a.tx, 4, 'asdads')
     传入文件路径 文件名.扩展 属性(可选默认为4) 余下为内容(可选默认为空字符串)
     '''
     if len(text.encode()) > 255:
         return 'Text is too long'
+    if not __is_file_name(name):
+        return 'File name error!'
     name, ext = name.split('.')
-    if len(name.encode()) > 3:
-        return 'Name is too long!'
-    if ext not in ('ex', 'tx'):
-        return 'Extension name error!'
     if attribute not in ('3', '4', '5'):
         return 'Attribute error!'
     value = {
@@ -212,8 +215,32 @@ def __delete_file(path: str, file_name: str) -> str:
         return 'Fail!'
 
 
+# 打开文件
+def __open_file(path: str):
+    dot = path.find('.')
+    ext = path[dot:]
+    print(path)
+    if ext != 'ex':
+        ans = disk.open_file(path)
+        if ans:
+            return str(ans)
+    return 'Open error!'
+
+
+# 判断文件名是否合法
+def __is_file_name(name: str) -> bool:
+    names = name.split('.')
+    if len(names) != 2:
+        return False
+    if len(names[0].encode()) > 3:
+        return False
+    if len(names[1].encode()) > 2:
+        return False
+    return True
+
+
 if __name__ == "__main__":
     # while True:
     #     order = input()
     #     print(parser(order))
-    print(__to_time(b'\x12\x0c\x04\x10)'))
+    print(__is_file_name('a.tx'))
