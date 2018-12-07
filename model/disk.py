@@ -169,8 +169,7 @@ def delete_file(path: str) -> bool:
     blocks = get_block(path, 4)
     if blocks[0] == -1:
         return False
-    if path[-1] == '/':
-        path = path[:-1]
+    path = format_path(path)
     path_list = path.split('/')
     name = format_name(path_list[-1])
 
@@ -339,8 +338,7 @@ def delete_dir(path: str) -> bool:
     blocks = get_block(path)
     if blocks[0] == -1:
         return False
-    if path[-1] == '/':
-        path = path[:-1]
+    path = format_path(path)
     path_list = path.split('/')
     name = format_name(path_list[-1])
 
@@ -577,8 +575,7 @@ def get_block(path, attribute: int = 8) -> list:
     如果没有找到则返回[-1]
     '''
     if type(path) is str:
-        if path[-1] == '/':
-            path = path[:-1]
+        path = format_path(path)
         path_list = path.split('/')
         if path in ('C:', 'D:', 'c:', 'd:'):
             return [2]
@@ -618,12 +615,8 @@ def get_pointer(path: str, attribute: int = 8) -> tuple:
     其中路径进行匹配找到父文件块
     最后再父文件块内匹配找到目标的文件控制块
     '''
-
-    if path[-1] == '/':
-        path = path[:-1]
     if type(path) is str:
-        if path[-1] == '/':
-            path = path[:-1]
+        path = format_path(path)
         path_list = path.split('/')
     else:
         path_list = path
@@ -852,7 +845,7 @@ if __name__ == '__main__':
     # a = divide('1'*70)
 
     # 新建文件
-    print(create_file(temp_file))
+    # print(create_file(temp_file))
 
     # 文件打开测试
     # print(open_file('C:/a/a.tx'))
@@ -862,4 +855,4 @@ if __name__ == '__main__':
     # # print(get_pointer('C:'))
 
     # 查重测试
-    print(duplicate_checking('C:/', 'a.tx', 4))
+    # print(duplicate_checking('C:/', 'a.tx', 4))

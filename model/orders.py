@@ -12,8 +12,7 @@ def parser(order: str) -> str:
     if order[1] == '':
         return ''
     path = order[0]
-    if path[-1] == '/':
-        path = path[:-1]
+    path = disk.format_path(path)
     order = order[1].lower().split()
     args = order[1:]
     order = order[0]
@@ -70,8 +69,7 @@ def __cd(path: str, dest: str) -> str:
     返回操作后的路径
     移动失败则返回 Path Error!
     '''
-    if path[-1] == '/':
-        path = path[:-1]
+    path = disk.format_path(path)
     path_list = path.split('/')
     if path_list[-1] == '':
         path_list.pop(-1)
@@ -120,8 +118,7 @@ def __mkdir(path: str, name: str) -> str:
     '''
     if len(name.encode()) > 3:
         return 'name is too long!'
-    if path[-1] == '/':
-        path = path[:-1]
+    path = disk.format_path(path)
     if disk.create_dir(path+'/'+name):
         return 'Success'
     else:
@@ -133,8 +130,7 @@ def __rmdir(path: str, name: str) -> str:
     '''
     传入当前路径和需要删除的子目录, 此方法只能删除
     '''
-    if path[-1] == '/':
-        path = path[:-1]
+    path = disk.format_path(path)
     if disk.delete_dir(path+'/'+name):
         return 'Seccuss!'
     else:
@@ -204,8 +200,7 @@ def __delete_file(path: str, file_name: str) -> str:
     '''
     传入文件路径, 文件名，判断是否为文件
     '''
-    if path[-1] == '/':
-        path = path[:-1]
+    path = disk.format_path(path)
     if __is_file_name(file_name):
         return 'Not a file name!'
     name, ext = disk.file_name_split(file_name)
