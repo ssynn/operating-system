@@ -184,7 +184,7 @@ def __create_file(path: str, name: str, attribute: str = '4', text: str = '') ->
         return 'Text is too long'
     if not __is_file_name(name):
         return 'File name error!'
-    name, ext = name.split('.')
+    name, ext = disk.file_name_split(name)
     if attribute not in ('3', '4', '5'):
         return 'Attribute error!'
     value = {
@@ -206,9 +206,9 @@ def __delete_file(path: str, file_name: str) -> str:
     '''
     if path[-1] == '/':
         path = path[:-1]
-    name, ext = file_name.split('.')
-    if len(name.encode()) > 3 or ext not in ('ex', 'tx'):
+    if __is_file_name(file_name):
         return 'Not a file name!'
+    name, ext = disk.file_name_split(file_name)
     if disk.delete_file(path + '/' + name):
         return 'Seccuss!'
     else:
@@ -229,12 +229,10 @@ def __open_file(path: str):
 
 # 判断文件名是否合法
 def __is_file_name(name: str) -> bool:
-    names = name.split('.')
-    if len(names) != 2:
+    name, ext = disk.file_name_split(name)
+    if len(name.encode()) > 3:
         return False
-    if len(names[0].encode()) > 3:
-        return False
-    if len(names[1].encode()) > 2:
+    if len(ext.encode()) > 2:
         return False
     return True
 
