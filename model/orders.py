@@ -44,8 +44,6 @@ def parser(order: str) -> str:
     if order == 'create':
         if len(args) == 0:
             return ['display', 'Parameter error!']
-        if args[0].count('.') != 1:
-            return ['display', 'Not file name!']
         if len(args) == 1:
             return ['display', __create_file(path, args[0])]
         if len(args) == 2:
@@ -54,8 +52,6 @@ def parser(order: str) -> str:
     if order == 'delete':
         if len(args) == 0:
             return ['display', 'Parameter error!']
-        if args[0].count('.') != 1:
-            return ['display', 'Not file name!']
         return ['display', __delete_file(path, args[0])]
     if __is_file_name(order.split('/')[-1]):
         return ['display', __open_file(path+'/'+order.split('/')[-1])]
@@ -94,7 +90,6 @@ def __dir(path: str) -> str:
     返回格式化后的信息
     '''
     temp = disk.list_dir(path)
-    print(temp)
     if not temp:
         return ''
     ans = ''
@@ -201,7 +196,7 @@ def __delete_file(path: str, file_name: str) -> str:
     传入文件路径, 文件名，判断是否为文件
     '''
     path = disk.format_path(path)
-    if __is_file_name(file_name):
+    if not __is_file_name(file_name):
         return 'Not a file name!'
     name, ext = disk.file_name_split(file_name)
     if disk.delete_file(path + '/' + name):
@@ -233,7 +228,4 @@ def __is_file_name(name: str) -> bool:
 
 
 if __name__ == "__main__":
-    # while True:
-    #     order = input()
-    #     print(parser(order))
     print(__is_file_name('a.tx'))
