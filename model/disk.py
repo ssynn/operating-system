@@ -61,7 +61,7 @@ def create_file(info: dict) -> bool:
         return False
 
     # 查重
-    if duplicate_checking(info['path'], info['name']+'.'+info['ext'], info['attribute']):
+    if duplicate_checking(info['path'], info['name']+'.'+info['ext']):
         return False
 
     # 在父磁盘块内找一个空位置
@@ -171,7 +171,7 @@ def delete_file(path: str) -> bool:
     最后删除父表项中的自己
     '''
     # 先检查目录是否存在
-    blocks = get_block(path, 4)
+    blocks = get_block(path)
     if blocks[0] == -1:
         return False
     path = format_path(path)
@@ -183,18 +183,7 @@ def delete_file(path: str) -> bool:
         data = f.read()
 
     # 在父块内找到自己对应的位置
-    father_blocks = get_block(path_list[:-1])
-    for father_block in father_blocks:
-        is_find = False
-        for in_block_pointer in range(8):
-            if data[father_block*66 + in_block_pointer*8] == 130:
-                break
-            position = get_position(father_block, in_block_pointer)
-            if name == data[position: position + 3] and data[position + 5] in (3, 4, 5):
-                is_find = True
-                break
-        if is_find:
-            break
+    father_block, in_block_pointer, _ = get_pointer(path)
 
     # 把修改写入文件
     with open('virtual_disk_' + path_list[0].lower()[0], 'rb+') as f:
@@ -260,7 +249,7 @@ def open_file(path: str) -> dict:
     path_list = path.split('/')
     name = path_list[-1]
     name, ext = file_name_split(name)
-    blocks = get_block(path, 4)
+    blocks = get_block(path)
     if blocks[0] == -1:
         return None
     text = b''
@@ -268,7 +257,9 @@ def open_file(path: str) -> dict:
         for block in blocks:
             f.seek(block*66)
             text += f.read(64)
-    FCB = get_pointer(path, 4)[2]
+    FCB = get_pointer(path)[2]
+    if FCB[5] == 8:
+        return None
     length = FCB[-1]
     return {
         'name': name,
@@ -395,7 +386,7 @@ def delete_dir(path: str) -> bool:
     path_list = path.split('/')
     name = format_name(path_list[-1])
 
-    # 获取所有和子项
+    # 获取所有子项
     children = list_dir(path)
 
     # 把当前目录内的子项删除
@@ -410,18 +401,7 @@ def delete_dir(path: str) -> bool:
         data = f.read()
 
     # 在父块内找到自己对应的位置
-    father_blocks = get_block(path_list[:-1])
-    for father_block in father_blocks:
-        is_find = False
-        for in_block_pointer in range(8):
-            if data[father_block*66 + in_block_pointer*8] == 130:
-                break
-            position = get_position(father_block, in_block_pointer)
-            if name == data[position: position + 3] and data[position + 5] == 8:
-                is_find = True
-                break
-        if is_find:
-            break
+    father_block, in_block_pointer, _ = get_pointer(path)
 
     # 把修改写入文件, 不再抹去申请到的文件块内的内容
     with open('virtual_disk_' + path_list[0].lower()[0], 'rb+') as f:
@@ -539,7 +519,7 @@ def create_dir(path: str) -> bool:
 
 # 把文件名转换为8Byte串
 def dirname_to_bytes(name: bytes, start: int) -> bytes:
-    return name + bytes([48, 48, 8, start, 0])
+    return name + bytes([32, 32, 8, start, 0])
 
 
 # 文件夹最后一部分，记录当前块产生的时间
@@ -566,10 +546,17 @@ def assign(old: bytes, pointer: int, val: int):
 # 复制文件夹
 def copy_dir(path: str, new_path: str) -> bool:
     '''
+    旧路径包含了原文件夹名
+    新路径只包含目标文件夹的路径，不包含原文件夹名称
     在新路径建立新文件夹
     把文件复制进新文件夹
     对子文件夹调用copy_dir
     '''
+    path = format_path(path)
+    new_path = format_path(new_path)
+    name = path.split('/')[-1]
+    new_path = new_path + '/' + name
+
     # 在目标文件夹内建立所新文件夹
     if not create_dir(new_path):
         return False
@@ -616,12 +603,20 @@ def move_dir(path: str, new_path: str) -> bool:
     return delete_dir(path)
 
 
-# TODO 通用移动方法
+# 通用移动方法
 def move(path: str, new_path: str) -> bool:
     '''
     首先解析文件类型
+    new_path 一定为目标文件夹的路径
     '''
-    pass
+    path = format_path(path)
+    new_path = format_path(new_path)
+    if not is_dir(new_path):
+        return False
+    if is_dir(path):
+        return move_dir(path, new_path)
+    else:
+        return move_file(path, new_path)
 
 
 # 获取空磁盘块
@@ -673,11 +668,11 @@ def disk_table(disk: str = 'c') -> list:
 
 
 # 获取盘块号
-def get_block(path, attribute: int = 8) -> list:
+def get_block(path) -> list:
     '''
     传入绝对路径可以为字符串或列表，返回当前目录占有的盘块号列表
-    文件C:/a/a.tx attribute=4
-    文件夹C:/a    attribute=8
+    文件C:/a/a.tx
+    文件夹C:/a
     如果没有找到则返回[-1]
     '''
     if type(path) is str:
@@ -691,7 +686,7 @@ def get_block(path, attribute: int = 8) -> list:
             return [2]
 
     # 获取文件的起始盘块
-    parent_block = get_pointer(path, attribute)
+    parent_block = get_pointer(path)
     if parent_block[0] == -1:
         return [-1]
 
@@ -710,7 +705,7 @@ def get_block(path, attribute: int = 8) -> list:
 
 
 # 获取指向自己文件控制块的指针
-def get_pointer(path: str, attribute: int = 8) -> tuple:
+def get_pointer(path: str) -> tuple:
     '''
     传入文件路径，如
     C:/a
@@ -729,15 +724,11 @@ def get_pointer(path: str, attribute: int = 8) -> tuple:
     driver = path_list[0]
     target_name = path_list[-1]
     path_list = path_list[:-1]
-    name, ext = '', ''
 
     # 文件路径和文件名需要分开匹配
-    if attribute != 8:
-        name, ext = file_name_split(target_name)
-        name = format_name(name)
-        ext = format_ext(ext)
-    else:
-        name = format_name(target_name)
+    name, ext = file_name_split(target_name)
+    name = format_name(name)
+    ext = format_ext(ext)
 
     # 指针指向根目录
     parent_block = 2
@@ -760,7 +751,6 @@ def get_pointer(path: str, attribute: int = 8) -> tuple:
         parent_block,
         data,
         name,
-        attribute,
         ext
     )[1]
 
@@ -831,7 +821,7 @@ def get_position(block_pointer: int, inner_pointer: int) -> int:
 
 
 # 获取目标在父文件块内的位置
-def get_inner_pointer(start_pointer: int, data: list, name: str, attribute: int = 8, ext: str = '') -> int:
+def get_inner_pointer(start_pointer: int, data: list, name: str, ext: str = '') -> int:
     '''
     传入文件块的首地址，需要匹配的目标名称，磁盘内容信息，文件属性
     如果只传入三前个参数则默认为匹配文件夹
@@ -852,19 +842,13 @@ def get_inner_pointer(start_pointer: int, data: list, name: str, attribute: int 
         # 在每一个块内进行匹配
         for inner_pointer in range(8):
             start = inner_pointer*8
-            # 文件夹匹配
-            if attribute == 8 and data[block][start+5] == 8 and name == data[block][start: start+3]:
+            if name == data[block][start: start+3] and ext == data[block][start+3: start+5]:
                 return (block, inner_pointer)
-                break
-            # 文件匹配
-            if attribute != 8 and data[block][start+5] != 8 and name == data[block][start: start+3] and ext == data[block][start+3: start+5]:
-                return (block, inner_pointer)
-                break
     return (-1, -1)
 
 
 # 查重
-def duplicate_checking(path: str, name: str, attribute: int = 8) -> bool:
+def duplicate_checking(path: str, name: str) -> bool:
     '''
     检查要创建的文件或者文件夹是否已经存在
     path为父文件夹路径
@@ -875,22 +859,9 @@ def duplicate_checking(path: str, name: str, attribute: int = 8) -> bool:
     文件夹也不能与后缀名为空的文件同名
     '''
     path = format_path(path)
-    # 检查是否有同名同属性的东西
-    if get_pointer(path+'/'+name, attribute)[0] != -1:
+    # 检查是否有同名的东西
+    if get_pointer(path+'/'+name)[0] != -1:
         return True
-
-    # 如果为文件夹则不能与后缀名为空的文件同名
-    if attribute == 8:
-        if get_pointer(path+'/'+name, 4)[0] != -1:
-            return True
-
-    name, ext = file_name_split(name)
-    print(name, ext)
-    # 如果文件后缀名为空则不能与文件夹内的文件夹同名
-    if ext == '' and attribute != 8:
-        if get_pointer(path+'/'+name, 8)[0] != -1:
-            return True
-
     return False
 
 
@@ -922,8 +893,14 @@ def format_ext(ext) -> bytes:
 
 # 规范路径
 def format_path(path: str) -> str:
+    if len(path) == 0:
+        return path
     if path[-1] == '/':
-        return path[:-1]
+        path = path[:-1]
+    if len(path) == 0:
+        return path
+    if path[0] == '/':
+        path = path[1:]
     return path
 
 
@@ -939,14 +916,49 @@ def file_name_split(name: str) -> tuple:
     return (name[0], '')
 
 
-# TODO 文件路径解析器
+# 文件路径解析器
 def path_parser(path: str, args: str) -> list:
     '''
     传入当前路径和参数
     如果args是绝对路径则返回args
     如果args是相对路径则返回path与args拼接后的路径
     '''
-    pass
+    path = format_path(path)
+    path_list = path.split('/')
+
+    # 传入的是绝对路径
+    if args[:2] in ('C:', 'c:', 'D:', 'd:'):
+        args = list(args)
+        args[0] = args[0].upper()
+        args = ''.join(args)
+        return args
+
+    # 返回根目录
+    if args == '/':
+        return path_list[0]
+
+    # 相对路径
+    if args[:2] == '..':
+        if len(path_list) == 1:
+            return path
+        path_list.pop(-1)
+        args = args[2:]
+
+    args = format_path(args)
+    args = args.split('/')
+    if len(args) != 0:
+        path_list += args
+    return '/'.join(path_list)
+
+
+# 判断文件类型
+def is_dir(path: str):
+    '''
+    传入文件路径
+    如果是文件夹就返回True
+    '''
+    FCB = get_pointer(path)[2]
+    return FCB[5] == 8
 
 
 if __name__ == '__main__':

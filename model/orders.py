@@ -53,6 +53,10 @@ def parser(order: str) -> str:
         if len(args) == 0:
             return ['display', 'Parameter error!']
         return ['display', __delete_file(path, args[0])]
+    if order == 'parser':
+        return ['display', disk.path_parser(path, args[0])]
+    if order == 'move':
+        return ['display', __move(path, args[0], args[1])]
     if __is_file_name(order.split('/')[-1]):
         return ['display', __open_file(path+'/'+order.split('/')[-1])]
     return ['display', order + '不是命令，也不是可执行的程序']
@@ -65,18 +69,7 @@ def __cd(path: str, dest: str) -> str:
     返回操作后的路径
     移动失败则返回 Path Error!
     '''
-    path = disk.format_path(path)
-    path_list = path.split('/')
-    if path_list[-1] == '':
-        path_list.pop(-1)
-    if dest == '..':
-        if len(path_list) == 1:
-            return path
-        path_list.pop(-1)
-        return '/'.join(path_list)
-    if dest == '/':
-        return path_list[0]
-    path = path + '/' + dest
+    path = disk.path_parser(path, dest)
     block = disk.get_block(path)
     if block[0] == -1:
         return 'Path Error!'
@@ -132,9 +125,17 @@ def __rmdir(path: str, name: str) -> str:
         return 'Error!'
 
 
-# TODO 移动文件夹
-def __move(path: str, old: str, new: str):
-    pass
+# 移动文件夹
+def __move(path: str, old: str, new: str) -> str:
+    '''
+    传入当前地址 源路径 目标路径
+    '''
+    old_path = disk.path_parser(path, old)
+    new_path = disk.path_parser(path, new)
+    if disk.move(old_path, new_path):
+        return 'Seccuss!'
+    else:
+        return 'Fail!'
 
 
 # TODO 删除当前目录的空目录

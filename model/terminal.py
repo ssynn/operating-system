@@ -37,6 +37,7 @@ class Terminal(QTextEdit):
             if keyEvent.key() == Qt.Key_Enter or keyEvent.key() == 16777220:
                 self.execute()
                 self.append(self.headText)
+                self.orders_log.toEnd()
                 self.maxLine += 1
                 self.toEnd()
                 return True
@@ -135,6 +136,9 @@ class OrderList():
     def put(self, val: str):
         self.value.append(val)
         self.pointer += 1
+
+    def toEnd(self):
+        self.pointer = len(self.value) - 1
 
 
 if __name__ == "__main__":
