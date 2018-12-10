@@ -37,7 +37,6 @@ class Terminal(QTextEdit):
             if keyEvent.key() == Qt.Key_Enter or keyEvent.key() == 16777220:
                 self.execute()
                 self.append(self.headText)
-                self.orders_log.toEnd()
                 self.maxLine += 1
                 self.toEnd()
                 return True
@@ -118,24 +117,24 @@ class OrderList():
         self.pointer = -1
 
     def perious(self):
-        if len(self.value) == 0:
+        if len(self.value) == 0 or self.pointer < -1:
             return ''
-        temp = self.value[self.pointer]
         if self.pointer > 0:
             self.pointer -= 1
+        temp = self.value[self.pointer]
         return temp
 
     def next(self):
-        if len(self.value) == 0:
+        if len(self.value) == 0 or self.pointer > len(self.value):
             return ''
-        temp = self.value[self.pointer]
         if self.pointer < len(self.value)-1:
             self.pointer += 1
+        temp = self.value[self.pointer]
         return temp
 
     def put(self, val: str):
         self.value.append(val)
-        self.pointer += 1
+        self.pointer = len(self.value)
 
     def toEnd(self):
         self.pointer = len(self.value) - 1

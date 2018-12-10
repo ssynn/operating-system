@@ -33,8 +33,8 @@ def parser(order: str) -> str:
             return ['display', ans]
     if order == 'format':
         if args == []:
-            args = "C:"
-        return ['path', __format(args)]
+            args = ' '
+        return __format(args[0].strip())
     if order == 'rmdir':
         if args[0].count('$') != 0 or args[0].count('.') != 0 or args[0].count('/') != 0:
             return ['display', 'Not dir name!']
@@ -50,15 +50,29 @@ def parser(order: str) -> str:
             return ['display', __create_file(path, args[0], args[1])]
         return ['display', __create_file(path, args[0], args[1], ' '.join(args[2:]))]
     if order == 'delete':
-        if len(args) == 0:
+        if len(args) != 1:
             return ['display', 'Parameter error!']
         return ['display', __delete_file(path, args[0])]
     if order == 'parser':
+        if len(args) != 1:
+            return ['display', 'Parameter error!']
         return ['display', disk.path_parser(path, args[0])]
     if order == 'move':
+        if len(args) != 2:
+            return ['display', 'Parameter error!']
         return ['display', __move(path, args[0], args[1])]
-    if __is_file_name(order.split('/')[-1]):
-        return ['display', __open_file(path+'/'+order.split('/')[-1])]
+    if order == 'copy':
+        if len(args) != 2:
+            return ['display', 'Parameter error!']
+        return ['display', __copy(path, args[0], args[1])]
+
+    # 根目录移动
+    if order in ('C:', 'c:', 'd:', 'D:'):
+        return ['path', order.capitalize()]
+    if __is_file_name(order):
+        return ['display', __open_file(path+'/'+order)]
+    if disk.is_absolute_path(order):
+        return ['display', __open_file(order)]
     return ['display', order + '不是命令，也不是可执行的程序']
 
 
@@ -73,6 +87,10 @@ def __cd(path: str, dest: str) -> str:
     block = disk.get_block(path)
     if block[0] == -1:
         return 'Path Error!'
+    path = list(path)
+    path[0] = path[0].upper()
+    path = ''.join(path)
+    print(path)
     return path
 
 
@@ -125,14 +143,29 @@ def __rmdir(path: str, name: str) -> str:
         return 'Error!'
 
 
-# 移动文件夹
+# 移动
 def __move(path: str, old: str, new: str) -> str:
     '''
     传入当前地址 源路径 目标路径
     '''
     old_path = disk.path_parser(path, old)
     new_path = disk.path_parser(path, new)
+    print(old_path, new_path)
     if disk.move(old_path, new_path):
+        return 'Seccuss!'
+    else:
+        return 'Fail!'
+
+
+# 复制
+def __copy(path: str, old: str, new: str) -> str:
+    '''
+    传入当前地址 源路径 目标路径
+    '''
+    old_path = disk.path_parser(path, old)
+    new_path = disk.path_parser(path, new)
+    print(old_path, new_path)
+    if disk.copy(old_path, new_path):
         return 'Seccuss!'
     else:
         return 'Fail!'
@@ -144,12 +177,17 @@ def __rdir(path: str):
 
 
 # 格式化
-def __format(driver: str = 'C:') -> str:
+def __format(driver: str = '') -> list:
     '''
     格式化磁盘，返回根目录
     '''
+    if driver not in ('C:', 'c:', 'd:', 'D:', ''):
+        return ['display', 'Disk name error!']
     disk.format_disk(driver)
-    return driver
+    if driver == '':
+        return ['path', 'C:']
+    driver = driver.capitalize()
+    return ['path', driver]
 
 
 # 把bytes转换为时间
@@ -210,7 +248,7 @@ def __delete_file(path: str, file_name: str) -> str:
 def __open_file(path: str):
     dot = path.find('.')
     ext = path[dot:]
-    print(path)
+    # print(path)
     if ext != 'ex':
         ans = disk.open_file(path)
         if ans:

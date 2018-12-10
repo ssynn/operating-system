@@ -176,14 +176,12 @@ def delete_file(path: str) -> bool:
         return False
     path = format_path(path)
     path_list = path.split('/')
-    name = format_name(path_list[-1])
-
-    # 找到父块
-    with open('virtual_disk_' + path_list[0].lower()[0], 'rb+') as f:
-        data = f.read()
 
     # 在父块内找到自己对应的位置
-    father_block, in_block_pointer, _ = get_pointer(path)
+    father_block, in_block_pointer, FCB = get_pointer(path)
+
+    if FCB[5] == 8:
+        return False
 
     # 把修改写入文件
     with open('virtual_disk_' + path_list[0].lower()[0], 'rb+') as f:
@@ -264,7 +262,7 @@ def open_file(path: str) -> dict:
     return {
         'name': name,
         'ext': ext,
-        'text': text[5:length],
+        'text': text[5:length].decode(),
         'time': text[:5],
         'attribute': FCB[5],
         'length': length
@@ -384,7 +382,6 @@ def delete_dir(path: str) -> bool:
         return False
     path = format_path(path)
     path_list = path.split('/')
-    name = format_name(path_list[-1])
 
     # 获取所有子项
     children = list_dir(path)
@@ -395,10 +392,6 @@ def delete_dir(path: str) -> bool:
             delete_dir(path+'/'+child['name'].strip())
         else:
             delete_file(path+'/'+child['name'].strip()+'.'+child['ext'])
-
-    # 找到父块
-    with open('virtual_disk_' + path_list[0].lower()[0], 'rb+') as f:
-        data = f.read()
 
     # 在父块内找到自己对应的位置
     father_block, in_block_pointer, _ = get_pointer(path)
@@ -561,25 +554,33 @@ def copy_dir(path: str, new_path: str) -> bool:
     if not create_dir(new_path):
         return False
 
-    # 获取到文件夹内所有内容
+    # 获取到文件夹内所有内容, 如果没有内容直接返回True
     file_list = list_dir(path)
     if len(file_list) == 0:
-        return False
+        return True
 
     # 复制所有文件到新文件夹内
     for item in file_list:
         if item['attribute'] != 8:
+            print(
+                path+'/'+item['name']+'.'+item['ext'],
+                new_path
+            )
             copy_file(
                 path+'/'+item['name']+'.'+item['ext'],
-                new_path+'/'+item['name']+'.'+item['ext']
+                new_path
             )
 
     # 复制所有子文件夹到新文件夹内
     for item in file_list:
-        if item['attribute'] != 8:
+        if item['attribute'] == 8:
+            print(
+                path+'/'+item['name'],
+                new_path
+            )
             copy_dir(
                 path+'/'+item['name'],
-                new_path+'/'+item['name']
+                new_path
             )
 
     return True
@@ -617,6 +618,22 @@ def move(path: str, new_path: str) -> bool:
         return move_dir(path, new_path)
     else:
         return move_file(path, new_path)
+
+
+# 通用复制方法
+def copy(path: str, new_path: str) -> bool:
+    '''
+    首先解析文件类型
+    new_path 一定为目标文件夹的路径
+    '''
+    path = format_path(path)
+    new_path = format_path(new_path)
+    if not is_dir(new_path):
+        return False
+    if is_dir(path):
+        return copy_dir(path, new_path)
+    else:
+        return copy_file(path, new_path)
 
 
 # 获取空磁盘块
@@ -761,17 +778,34 @@ def get_pointer(path: str) -> tuple:
 
 
 # 格式化磁盘
-def format_disk(disk: str = 'C:') -> bool:
+def format_disk(disk: str = '') -> bool:
     '''
     传入磁盘号，默认为c盘
     '''
-    with open('virtual_disk_' + disk.lower()[0], 'w') as d:
-        for i in range(128):
-            d.write('0'*64+'\n')
+    if disk == '':
+        with open('virtual_disk_c', 'w') as d:
+            for i in range(128):
+                d.write('0'*64+'\n')
 
-    with open('virtual_disk_' + disk.lower()[0], 'rb+') as d:
-        d.seek(0)
-        d.write(bytes([129, 129, 129]))
+        with open('virtual_disk_c', 'rb+') as d:
+            d.seek(0)
+            d.write(bytes([129, 129, 129]))
+
+        with open('virtual_disk_d', 'w') as d:
+            for i in range(128):
+                d.write('0'*64+'\n')
+
+        with open('virtual_disk_d', 'rb+') as d:
+            d.seek(0)
+            d.write(bytes([129, 129, 129]))
+    else:
+        with open('virtual_disk_' + disk.lower()[0], 'w') as d:
+            for i in range(128):
+                d.write('0'*64+'\n')
+
+        with open('virtual_disk_' + disk.lower()[0], 'rb+') as d:
+            d.seek(0)
+            d.write(bytes([129, 129, 129]))
 
 
 # 字符串分割
@@ -799,8 +833,8 @@ def converter(value: bytes) -> dict:
     '''
     if value[0] == 130:
         return None
-    name = value[:3].decode()
-    ext = value[3:5].decode()
+    name = value[:3].decode().strip()
+    ext = value[3:5].decode().strip()
     attribute = value[5]
     address = value[6]
     length = value[7]
@@ -927,10 +961,7 @@ def path_parser(path: str, args: str) -> list:
     path_list = path.split('/')
 
     # 传入的是绝对路径
-    if args[:2] in ('C:', 'c:', 'D:', 'd:'):
-        args = list(args)
-        args[0] = args[0].upper()
-        args = ''.join(args)
+    if is_absolute_path(args):
         return args
 
     # 返回根目录
@@ -951,12 +982,23 @@ def path_parser(path: str, args: str) -> list:
     return '/'.join(path_list)
 
 
+# 判断是否是绝对路径
+def is_absolute_path(path: str) -> bool:
+    import re
+    pattern = r'[c|C|d|D]:(/\w+)*(/\w+\.\w*)?'
+    if re.match(pattern, path):
+        return True
+    return False
+
+
 # 判断文件类型
-def is_dir(path: str):
+def is_dir(path: str) -> bool:
     '''
     传入文件路径
     如果是文件夹就返回True
     '''
+    if path in ('C:', 'c:', 'd:', 'D:'):
+        return True
     FCB = get_pointer(path)[2]
     return FCB[5] == 8
 
@@ -1005,7 +1047,7 @@ if __name__ == '__main__':
 
     # 获取指针测试
     # print(open_disk()[:2])
-    # # print(get_pointer('C:'))
+    print(get_pointer('C:'))
 
     # 查重测试
     # print(duplicate_checking('C:/', 'a.tx', 4))
