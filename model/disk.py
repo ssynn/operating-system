@@ -57,6 +57,7 @@ def create_file(info: dict) -> bool:
 
     # 检查路径合法性
     parent_block = get_block(info['path'])[0]
+    print(parent_block, info)
     if parent_block == -1:
         return False
 
@@ -198,18 +199,25 @@ def delete_file(path: str) -> bool:
 
 
 # 修改文件, 内容
-def modify_file(path: str, new_text: str) -> bool:
+def modify_file(path: str, info: dict) -> bool:
     '''
-    传入文件路径和新内容
+    path包含文件名
+    传入文件路径和{
+        path: str,
+        name: str,
+        ext: str,
+        text: str,
+        attribute: int
+    }
     删除原来的文件
     新建文件
     '''
-    _file = open_file(path)
-    if not _file:
-        return False
-    _file['text'] = new_text
+    # _file = open_file(path)
+    # if not _file:
+    #     return False
     if delete_file(path):
-        return create_file(_file)
+        info['path'] = cut_path(path)[0]
+        return create_file(info)
     return False
 
 
@@ -291,6 +299,16 @@ def file_to_bytes(name: bytes, ext: str, attr: int, address: int, length: int) -
     return name + '{0:2}'.format(ext).encode() + bytes([attr, address, length])
 
 
+# 判断文件名是否合法
+def is_file_name(name: str) -> bool:
+    name, ext = file_name_split(name)
+    if len(name.encode()) > 3:
+        return False
+    if len(ext.encode()) > 2:
+        return False
+    return True
+
+
 # 移动文件
 def move_file(path: str, new_path: str) -> bool:
     '''
@@ -318,9 +336,11 @@ def list_dir(path: str) -> list:
         'time': str,
         'attribute': int,
         'address': int,
-        'length': int
+        'length': int,
+        'path': str
     }
     '''
+    path = format_path(path)
     path_list = path.split('/')
     blocks = get_block(path)
     if blocks[0] == -1:
@@ -336,9 +356,14 @@ def list_dir(path: str) -> list:
     dir_list = []
     for block in block_list:
         for i in range(8):
-            dir_list.append(converter(block[i*8: i*8+8]))
+            item = converter(block[i*8: i*8+8])
+            dir_list.append(item)
             if dir_list[-1] is None:
                 dir_list.pop(-1)
+            else:
+                item['path'] = path + '/' + item['name']
+                if item['ext'] != '':
+                    item['path'] += ('.'+item['ext'])
 
     # 读入每个FCB的时间
     with open('virtual_disk_' + path_list[0].lower()[0], 'rb+') as f:
@@ -358,10 +383,11 @@ def modify_dir(path: str, new_name: str) -> bool:
     '''
     path_list = path.split('/')
     father_block, inner_pointer, FCB = get_pointer(path)
+    print(father_block, inner_pointer, FCB)
     if father_block == -1:
         return False
-    new_fcb = dirname_to_bytes(new_name, FCB[6])
-    with open('virtual_disk_' + path_list.lower()[0], 'rb+') as f:
+    new_fcb = dirname_to_bytes(format_name(new_name), FCB[6])
+    with open('virtual_disk_' + path_list[0].lower()[0], 'rb+') as f:
         f.seek(father_block*66+inner_pointer*8)
         f.write(new_fcb)
     return True
@@ -991,6 +1017,13 @@ def is_absolute_path(path: str) -> bool:
     return False
 
 
+# 拼接文件名
+def join_name(name: str, ext: str) -> str:
+    if ext != '':
+        name += ('.' + ext)
+    return name
+
+
 # 判断文件类型
 def is_dir(path: str) -> bool:
     '''
@@ -1003,6 +1036,31 @@ def is_dir(path: str) -> bool:
     return FCB[5] == 8
 
 
+# 判断是否是文件夹的名字
+def is_dir_name(name: str) -> bool:
+    import re
+    pattern = r'\w{1,3}'
+    if re.fullmatch(pattern, name):
+        return True
+    return False
+
+
+# 分割路径和文件名
+def cut_path(path: str) -> list:
+    path = format_path(path)
+    if path in ('C:', 'c:', 'd:', 'D:'):
+        return [my_upper(path)]
+    path_list = path.split('/')
+    return ['/'.join(path_list[:-1]), path_list[-1]]
+
+
+# 把首字母大写
+def my_upper(path: str) -> str:
+    path = list(path)
+    path[0] = path[0].upper()
+    return ''.join(path)
+
+
 if __name__ == '__main__':
     temp_file = {
         'path': 'C:',
@@ -1011,6 +1069,7 @@ if __name__ == '__main__':
         'text': '大大大苏打    12313',
         'attribute': 4
     }
+    t2 = {'name': 'aa', 'ext': 't', 'attribute': 4, 'length': 4, 'text': 'asda', 'path': 'C:/aa.t'}
     # 打印磁盘
     # print_disk('c')
 
@@ -1033,21 +1092,27 @@ if __name__ == '__main__':
     # print(get_block('C:/', 4))
 
     # 读取文件列表
-    # print(list_dir('C:/'))
+    # print(list_dir('C:/a'))
 
     # 字符串分割
     # print(divide('1'*123))
     # a = divide('1'*70)
 
     # 新建文件
-    # print(create_file(temp_file))
+    # print(create_file(t2))
 
     # 文件打开测试
     # print(open_file('C:/a/a.tx'))
 
     # 获取指针测试
     # print(open_disk()[:2])
-    print(get_pointer('C:'))
+    # print(get_pointer('C:'))
 
     # 查重测试
     # print(duplicate_checking('C:/', 'a.tx', 4))
+
+    # 文件名剪切
+    
+    #%%
+    print(cut_path('C:/'))
+    print(cut_path('C:'))

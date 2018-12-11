@@ -87,9 +87,7 @@ def __cd(path: str, dest: str) -> str:
     block = disk.get_block(path)
     if block[0] == -1:
         return 'Path Error!'
-    path = list(path)
-    path[0] = path[0].upper()
-    path = ''.join(path)
+    path = disk.my_upper(path)
     print(path)
     return path
 

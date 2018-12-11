@@ -2,14 +2,21 @@ import sys
 from PyQt5.QtWidgets import QWidget, QTextEdit, QGridLayout, QLineEdit, QApplication, QLabel, QPushButton, QMessageBox
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import pyqtSignal
+import disk
 
 
 class TextEdit(QWidget):
-    after_close = pyqtSignal(list)
+    after_close = pyqtSignal(dict)
 
-    def __init__(self, existList: list, mes: list=None):
+    def __init__(self, existList: list, mes: list = None, op: str = 'new'):
+        '''
+        existList为当前目录的文件
+        mes[0] 为文件名
+        mes[1] 为文本内容
+        '''
         super().__init__()
         self.existList = existList
+        self.op = op
         self.setWindowIcon(QIcon('icon/text.ico'))
         self.setWindowTitle('文本编辑器')
         self.resize(600, 300)
@@ -38,13 +45,34 @@ class TextEdit(QWidget):
         self.show()
 
     def confirmFunction(self):
-        for i in self.existList:
-            if i.text() == self.line.text():
-                msgBox = QMessageBox(QMessageBox.Warning, "警告!", '文件名重复!', QMessageBox.NoButton, self)
-                msgBox.addButton("确认", QMessageBox.AcceptRole)
-                msgBox.exec_()
-                return
-        ans = [self.line.text(), self.textArea.toPlainText()]
+        if self.op == 'new':
+            for i in self.existList:
+                if i.text() == self.line.text():
+                    msgBox = QMessageBox(QMessageBox.Warning, "警告!", '文件名重复!', QMessageBox.NoButton, self)
+                    msgBox.addButton("确认", QMessageBox.AcceptRole)
+                    msgBox.exec_()
+                    return
+
+        if len(self.textArea.toPlainText().encode()) > 255:
+            msgBox = QMessageBox(QMessageBox.Warning, "警告!", '文件内容超过最大长度!', QMessageBox.NoButton, self)
+            msgBox.addButton("确认", QMessageBox.AcceptRole)
+            msgBox.exec_()
+            return
+
+        if not disk.is_file_name(self.line.text()):
+            msgBox = QMessageBox(QMessageBox.Warning, "警告!", '文件名不符合规范!', QMessageBox.NoButton, self)
+            msgBox.addButton("确认", QMessageBox.AcceptRole)
+            msgBox.exec_()
+            return
+
+        name, ext = disk.file_name_split(self.line.text())
+        ans = {
+            'name': name,
+            'ext': ext,
+            'attribute': 4,
+            'length': len(self.textArea.toPlainText().encode()),
+            'text': self.textArea.toPlainText()
+        }
         self.close()
         self.after_close.emit(ans)
 
