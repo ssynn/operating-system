@@ -28,16 +28,13 @@ class Example(QWidget):
         col.setNamedColor("#d4d4d4")
         qp.setPen(col)
 
-        qp.setBrush(QColor(200, 0, 0))
-
-        for i in range(20):
-            for j in range(15):
+        for i in range(16):
+            for j in range(8):
+                qp.setBrush(QColor(2*i*j, i+j, i*j))
                 qp.drawRect(35*i+5, 25*j+5, 30, 20)
 
 
 if __name__ == "__main__":
-    a = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
-    print(len(a))
     app = QApplication(sys.argv)
     ex = Example()
     sys.exit(app.exec_())

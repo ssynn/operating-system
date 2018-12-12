@@ -2,7 +2,9 @@ import sys
 from PyQt5.QtWidgets import (QWidget, QToolButton, QApplication,
                              QDesktopWidget, QGridLayout, QSplitter,
                              QTreeWidget, QTreeWidgetItem, QMenu, QAction,
-                             QLineEdit, QInputDialog, QMessageBox)
+                             QLineEdit, QInputDialog, QMessageBox,
+                             QRadioButton, QCheckBox,
+                             QPushButton)
 from PyQt5.QtGui import QIcon, QFont, QCursor
 from PyQt5.QtCore import QSize, Qt, pyqtSignal
 
@@ -165,7 +167,6 @@ class Explorer(QWidget):
         if ans[0] == 'path':
             self.rightWidget.path = ans[1]
         self.rightWidget.refresh()
-
 
 
 # 传入explorer类, 用path创建界面中的按钮
@@ -376,7 +377,7 @@ class FileWidget(QWidget):
 
     # 粘贴
     def pasetFunction(self):
-        print('paset', self.clipboard)
+        # print('paset', self.clipboard)
         if self.clipboard['operation'] == 'copy':
             mydisk.copy(self.clipboard['path'], self.path)
         else:
@@ -415,10 +416,10 @@ class MyButton(QToolButton):
 
     # TODO 双击
     def mouseDoubleClickEvent(self, e):
-        print(self.buttonType, self.info)
+        # print(self.buttonType, self.info)
         # TODO 可执行文件双击方法, 运行程序
         if self.buttonType == 'exe':
-            print('EXECUTE', self.info['name']+'.'+self.info['ext'])
+            # print('EXECUTE', self.info['name']+'.'+self.info['ext'])
             return
         # 文件夹双击方法, 进入此文件夹
         if self.buttonType == 'folder':
@@ -470,7 +471,7 @@ class MyButton(QToolButton):
             return
         self.text_edit = te.TextEdit(
             self.master.buttonList,
-            [mydisk.join_name(_file['name'], _file['ext']), _file['text']],
+            [mydisk.join_name(_file['name'], _file['ext']), _file['text'], self.info['attribute']],
             'edit'
         )
         self.text_edit.after_close.connect(self.editMenuFunction)
@@ -546,10 +547,22 @@ class MyButton(QToolButton):
             mydisk.modify_dir(self.info['path'], text)
             self.master.refresh()
 
-    # TODO 属性
+    # 属性
     def attributeMenu(self):
         item = QAction('&属性(R)', self)
+        item.triggered.connect(self.attributeDialog)
         return item
+
+    # 属性对话框
+    def attributeDialog(self):
+        self.attr = AttributeBox(self.info['attribute'])
+        self.attr.show()
+        self.attr.after_close.connect(self.attributeChange)
+
+    # 修改磁盘中的数据
+    def attributeChange(self, attr: int):
+        print(mydisk.change(self.info['path'], attr))
+        self.master.refresh()
 
     # 左键选中
     def leftClicked(self):
@@ -580,8 +593,24 @@ class MyButton(QToolButton):
         if self.info['attribute'] == 8:
             mydisk.delete_dir(self.info['path'])
         else:
-            mydisk.delete_file(self.info['path'])
+            # 不能删除系统文件
+            if self.info['attribute'] & 2 == 0:
+                mydisk.delete_file(self.info['path'])
+            else:
+                self.errorBox('系统文件不能删除！')
         self.master.refresh()
+
+    # 错误提示框
+    def errorBox(self, mes: str):
+        msgBox = QMessageBox(
+                QMessageBox.Warning,
+                "警告!",
+                mes,
+                QMessageBox.NoButton,
+                self
+            )
+        msgBox.addButton("确认", QMessageBox.AcceptRole)
+        msgBox.exec_()
 
     def setMyStyle(self):
         self.setStyleSheet('''
@@ -589,6 +618,51 @@ class MyButton(QToolButton):
                 background-color: #e5f3ff;
             }
         ''')
+
+
+class AttributeBox(QWidget):
+
+    after_close = pyqtSignal(int)
+
+    def __init__(self, attribute: int = 0):
+        super().__init__()
+
+        self.readOnlyBox = QCheckBox('只读')
+        self.systemBox = QRadioButton('系统文件')
+        self.fileBox = QRadioButton('普通文件')
+
+        self.confimButton = QPushButton()
+        self.confimButton.setText('确认')
+        self.confimButton.clicked.connect(self.confimFunction)
+
+        self.cancelButton = QPushButton('取消')
+        self.cancelButton.setText('取消')
+        self.cancelButton.clicked.connect(self.close)
+
+        ly = QGridLayout()
+        ly.addWidget(self.readOnlyBox, 0, 0)
+        ly.addWidget(self.systemBox, 0, 1)
+        ly.addWidget(self.fileBox, 0, 2)
+        ly.addWidget(self.confimButton, 1, 1)
+        ly.addWidget(self.cancelButton, 1, 2)
+
+        self.setLayout(ly)
+        if attribute & 1 != 0:
+            self.readOnlyBox.setChecked(True)
+        if attribute & 2 != 0:
+            self.systemBox.setChecked(True)
+        if attribute & 4 != 0:
+            self.fileBox.setChecked(True)
+
+    def confimFunction(self):
+        if self.systemBox.isChecked():
+            ans = 2
+        else:
+            ans = 4
+        if self.readOnlyBox.isChecked():
+            ans += 1
+        self.after_close.emit(ans)
+        self.close()
 
 
 def main():
@@ -599,3 +673,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    print

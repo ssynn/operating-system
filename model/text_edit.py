@@ -42,6 +42,8 @@ class TextEdit(QWidget):
         if mes is not None:
             self.line.setText(mes[0])
             self.textArea.setText(mes[1])
+            if mes[2] & 1 != 0:
+                self.textArea.setDisabled(True)
         self.show()
 
     def confirmFunction(self):

@@ -70,7 +70,7 @@ def create_file(info: dict) -> bool:
         for inner_pointer in range(9):
             if inner_pointer == 8:
                 break
-            if disk[parent_block][inner_pointer*8+5] == 48:
+            if disk[parent_block][inner_pointer*8+5] == 0:
                 break
         if disk[parent_block // 64][parent_block % 64] == 129:
             break
@@ -190,11 +190,11 @@ def delete_file(path: str) -> bool:
             if block > 63:
                 block += 2
             f.seek(block)
-            f.write(bytes([48]))
+            f.write(bytes([0]))
 
         # 在父表项中删除自己的数据
         f.seek(father_block*66 + in_block_pointer*8)
-        f.write(bytes([48]*8))
+        f.write(bytes([0]*8))
     return True
 
 
@@ -226,14 +226,15 @@ def change(path: str, attr: int) -> bool:
     '''
     传入文件路径和新的属性
     '''
-    path_list = path.split('/')
     father_block, inner_pointer, FCB = get_pointer(path)
+    print(father_block, inner_pointer, FCB)
     if father_block == -1:
         return False
     new_fcb = list(FCB)
-    new_fcb[6] = attr
+    new_fcb[5] = attr
     new_fcb = bytes(new_fcb)
-    with open('virtual_disk_' + path_list.lower()[0], 'rb+') as f:
+    print(father_block, inner_pointer, new_fcb)
+    with open('virtual_disk_' + path[0].lower()[0], 'rb+') as f:
         f.seek(father_block*66+inner_pointer*8)
         f.write(new_fcb)
     return True
@@ -417,7 +418,7 @@ def delete_dir(path: str) -> bool:
         if child['attribute'] == 8:
             delete_dir(path+'/'+child['name'].strip())
         else:
-            delete_file(path+'/'+child['name'].strip()+'.'+child['ext'])
+            delete_file(path+'/'+join_name(child['name'].strip(), child['ext'].strip()))
 
     # 在父块内找到自己对应的位置
     father_block, in_block_pointer, _ = get_pointer(path)
@@ -428,9 +429,9 @@ def delete_dir(path: str) -> bool:
             if block > 63:
                 block += 2
             f.seek(block)
-            f.write(bytes([48]))
+            f.write(bytes([0]))
         f.seek(father_block*66 + in_block_pointer*8)
-        f.write(bytes([48]*8))
+        f.write(bytes([0]*8))
     return True
 
 
@@ -475,12 +476,14 @@ def create_dir(path: str) -> bool:
         for block_pointer in range(9):
             if block_pointer == 8:
                 break
-            if disk[parent_block][block_pointer*8+5] == 48:
+            # 判断当前位置是否为空
+            if disk[parent_block][block_pointer*8: block_pointer*8+8] == bytes([0]*8):
                 break
+        # 父盘块已经没有后续盘块
         if disk[parent_block//64][parent_block % 64] == 129:
             break
 
-        # 需要扫描所有分配给目录的表项
+        # 指针指向下一个盘块
         parent_block = disk[parent_block//64][parent_block % 64]
 
     # 父文件块已满, 当前是根目录，不能再申请文件夹
@@ -529,7 +532,7 @@ def create_dir(path: str) -> bool:
         f.write(dirname_to_bytes(new_dir, empty_pointer))
         # 先把申请到的盘块置0
         f.seek(empty_pointer*66)
-        f.write(bytes([48]*64))
+        f.write(bytes([0]*64))
         # 再空闲盘块的最后一行写入创建时间
         f.seek(empty_pointer*66+56)
         f.write(get_time())
@@ -671,7 +674,7 @@ def get_empty_block(disk: list) -> int:
         if empty_pointer == 128:
             empty_pointer = -1
             break
-        if disk[empty_pointer//64][empty_pointer % 64] == 48:
+        if disk[empty_pointer//64][empty_pointer % 64] == 0:
             break
     return empty_pointer
 
@@ -790,12 +793,12 @@ def get_pointer(path: str) -> tuple:
         parent_block = data[parent_block][inner_pointer*8+6]
 
     # 匹配目标在父文件块内的位置
-    inner_pointer = get_inner_pointer(
+    parent_block, inner_pointer = get_inner_pointer(
         parent_block,
         data,
         name,
         ext
-    )[1]
+    )[:2]
 
     if inner_pointer == -1:
         return (-1,)
@@ -809,25 +812,25 @@ def format_disk(disk: str = '') -> bool:
     传入磁盘号，默认为c盘
     '''
     if disk == '':
-        with open('virtual_disk_c', 'w') as d:
+        with open('virtual_disk_c', 'wb+') as d:
             for i in range(128):
-                d.write('0'*64+'\n')
+                d.write(bytes([0]*64+[13, 10]))
 
         with open('virtual_disk_c', 'rb+') as d:
             d.seek(0)
             d.write(bytes([129, 129, 129]))
 
-        with open('virtual_disk_d', 'w') as d:
+        with open('virtual_disk_d', 'wb+') as d:
             for i in range(128):
-                d.write('0'*64+'\n')
+                d.write(bytes([0]*64+[13, 10]))
 
         with open('virtual_disk_d', 'rb+') as d:
             d.seek(0)
             d.write(bytes([129, 129, 129]))
     else:
-        with open('virtual_disk_' + disk.lower()[0], 'w') as d:
+        with open('virtual_disk_' + disk.lower()[0], 'wb+') as d:
             for i in range(128):
-                d.write('0'*64+'\n')
+                d.write(bytes([0]*64+[13, 10]))
 
         with open('virtual_disk_' + disk.lower()[0], 'rb+') as d:
             d.seek(0)
@@ -864,7 +867,7 @@ def converter(value: bytes) -> dict:
     attribute = value[5]
     address = value[6]
     length = value[7]
-    if attribute == 48:
+    if attribute == 0:
         return None
     return {
         'name': name,
@@ -1077,7 +1080,7 @@ if __name__ == '__main__':
     # print(open_disk())
 
     # 格式化磁盘
-    # format_disk()
+    format_disk()
 
     # 测试文件夹转换bytes
     # for i in range(8):
@@ -1105,12 +1108,12 @@ if __name__ == '__main__':
     # print(open_file('C:/a/a.tx'))
 
     # 获取指针测试
-    print(open_disk()[:2])
-    # print(get_pointer('C:'))
+    # print(open_disk()[:2])
+    print(get_pointer('C:'))
 
     # 查重测试
     # print(duplicate_checking('C:/', 'a.tx', 4))
 
     # 文件名剪切
-    print(cut_path('C:/'))
-    print(cut_path('C:'))
+    # print(cut_path('C:/'))
+    # print(cut_path('C:'))
