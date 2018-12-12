@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (QWidget, QToolButton, QApplication,
                              QDesktopWidget, QGridLayout, QSplitter,
                              QTreeWidget, QTreeWidgetItem, QMenu, QAction,
                              QLineEdit, QInputDialog, QMessageBox)
-from PyQt5.QtGui import QIcon, QFont, QCursor, QKeySequence
+from PyQt5.QtGui import QIcon, QFont, QCursor
 from PyQt5.QtCore import QSize, Qt, pyqtSignal
 
 # from model import floatlayout as fl
@@ -11,6 +11,7 @@ from PyQt5.QtCore import QSize, Qt, pyqtSignal
 import floatlayout as fl
 import text_edit as te
 import disk as mydisk
+import orders
 
 
 class Explorer(QWidget):
@@ -157,9 +158,14 @@ class Explorer(QWidget):
     def closeEvent(self, e):
         self.after_close_signal.emit()
 
-    # TODO 执行语句方法
+    # 执行语句方法
     def execute(self):
-        print(self.executeBar.text())
+        order = self.rightWidget.path + '>' + self.executeBar.text()
+        ans = orders.parser(order)
+        if ans[0] == 'path':
+            self.rightWidget.path = ans[1]
+        self.rightWidget.refresh()
+
 
 
 # 传入explorer类, 用path创建界面中的按钮
@@ -183,21 +189,29 @@ class MyTreeView(QTreeWidget):
         self.myComputer.setIcon(0, QIcon('icon/my_computer.ico'))
         self.myComputer.setText(0, '我的电脑')
         self.myComputer.setExpanded(True)
+
         # C盘
         self.disk_c = QTreeWidgetItem(self.myComputer)
         self.disk_c.setIcon(0, QIcon('icon/disk_c.ico'))
         self.disk_c.setText(0, '本地磁盘(C:)')
+        self.disk_c.path = 'C:/'
+
         # D盘
         self.disk_d = QTreeWidgetItem(self.myComputer)
         self.disk_d.setIcon(0, QIcon('icon/disk.ico'))
         self.disk_d.setText(0, '本地磁盘(D:)')
-
+        self.disk_d.path = 'D:/'
         self.clicked.connect(self.leftClicked)
 
-    # TODO 树状视图左键方法
+    # 树状视图左键方法
     def leftClicked(self, val: object):
-        print('clicked')
-        # self.master.refresh()
+        itemNow = self.currentItem()
+        if itemNow.text(0) == '我的电脑':
+            return
+        subItems = mydisk.list_dir(itemNow.path)
+        self.makeChildren(itemNow, subItems)
+        self.master.rightWidget.path = itemNow.path
+        self.master.rightWidget.refresh()
 
     # 右键菜单
     def contextMenuEvent(self, e):
@@ -218,6 +232,18 @@ class MyTreeView(QTreeWidget):
         item = QAction('&新建文件夹', self)
         item.triggered.connect(self.master.rightWidget.newFolderFunction)
         return item
+
+    # 把子元素添加
+    def makeChildren(self, parent: QTreeWidgetItem, children: list):
+        for i in range(parent.childCount()):
+            parent.removeChild(parent.child(0))
+        for child in children:
+            if child['attribute'] == 8:
+                item = QTreeWidgetItem()
+                item.setText(0, child['name'])
+                item.path = child['path']
+                item.setIcon(0, QIcon('icon/file.ico'))
+                parent.addChild(item)
 
 
 class FileWidget(QWidget):

@@ -1105,14 +1105,12 @@ if __name__ == '__main__':
     # print(open_file('C:/a/a.tx'))
 
     # 获取指针测试
-    # print(open_disk()[:2])
+    print(open_disk()[:2])
     # print(get_pointer('C:'))
 
     # 查重测试
     # print(duplicate_checking('C:/', 'a.tx', 4))
 
     # 文件名剪切
-    
-    #%%
     print(cut_path('C:/'))
     print(cut_path('C:'))
