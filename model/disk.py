@@ -867,16 +867,10 @@ def converter(value: bytes) -> dict:
     }
 
 
-# 把二位坐标转化为一维坐标
-def get_position(block_pointer: int, inner_pointer: int) -> int:
-    return block_pointer*66 + inner_pointer * 8
-
-
 # 获取目标在父文件块内的位置
-def get_inner_pointer(start_pointer: int, data: list, name: str, ext: str = '') -> int:
+def get_inner_pointer(start_pointer: int, data: list, name: str, ext: str = '') -> tuple:
     '''
-    传入文件块的首地址，需要匹配的目标名称，磁盘内容信息，文件属性
-    如果只传入三前个参数则默认为匹配文件夹
+    传入文件块的首地址，磁盘内容信息，需要匹配的目标名称
     磁盘内容为128行66列的数组
     返回(父盘块号，目标在文件中的位置)
     如果没有找到返回(-1, -1)
@@ -905,7 +899,6 @@ def duplicate_checking(path: str, name: str) -> bool:
     检查要创建的文件或者文件夹是否已经存在
     path为父文件夹路径
     name为除路径以外的完整的文件名包括扩展名
-    attribute默认为8代表文件夹
     存在重复则返回True
     如果文件后缀名为空则不能与文件夹同名
     文件夹也不能与后缀名为空的文件同名

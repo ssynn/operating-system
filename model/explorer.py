@@ -72,6 +72,7 @@ class Explorer(QWidget):
         # 后退按钮
         self.backward = QToolButton()
         self.backward.setIcon(QIcon('icon/left.png'))
+        self.backward.setDisabled(True)
 
         # 前进按钮
         self.forward = QToolButton()
@@ -167,6 +168,7 @@ class Explorer(QWidget):
         if ans[0] == 'path':
             self.rightWidget.path = ans[1]
         self.rightWidget.refresh()
+        self.leftTree.refresh()
 
 
 # 传入explorer类, 用path创建界面中的按钮
@@ -209,8 +211,6 @@ class MyTreeView(QTreeWidget):
         itemNow = self.currentItem()
         if itemNow.text(0) == '我的电脑':
             return
-        subItems = mydisk.list_dir(itemNow.path)
-        self.makeChildren(itemNow, subItems)
         self.master.rightWidget.path = itemNow.path
         self.master.rightWidget.refresh()
 
@@ -235,9 +235,8 @@ class MyTreeView(QTreeWidget):
         return item
 
     # 把子元素添加
-    def makeChildren(self, parent: QTreeWidgetItem, children: list):
-        for i in range(parent.childCount()):
-            parent.removeChild(parent.child(0))
+    def makeChildren(self, parent: QTreeWidgetItem):
+        children = mydisk.list_dir(parent.path)
         for child in children:
             if child['attribute'] == 8:
                 item = QTreeWidgetItem()
@@ -245,6 +244,22 @@ class MyTreeView(QTreeWidget):
                 item.path = child['path']
                 item.setIcon(0, QIcon('icon/file.ico'))
                 parent.addChild(item)
+                self.makeChildren(item)
+
+    # 左侧树更新
+    def refresh(self):
+        '''
+        只有添加，删除，修改, 移动, 复制会触发此操作
+        '''
+        for i in range(self.disk_c.childCount()):
+            self.disk_c.removeChild(self.disk_c.child(0))
+
+        self.makeChildren(self.disk_c)
+
+        for i in range(self.disk_d.childCount()):
+            self.disk_d.removeChild(self.disk_d.child(0))
+
+        self.makeChildren(self.disk_d)
 
 
 class FileWidget(QWidget):
@@ -253,6 +268,10 @@ class FileWidget(QWidget):
         self.path = 'C:/'
         self.master = master
         self.buttonList = []
+        self.visited = ['C:/']
+        self.now = 0
+        self.master.backward.clicked.connect(self.back)
+        self.master.forward.clicked.connect(self.forward)
         self.clipboard = None
         self.body = fl.FlowLayout()
         self.setLayout(self.body)
@@ -286,6 +305,7 @@ class FileWidget(QWidget):
         info['path'] = mydisk.format_path(self.path)
         mydisk.create_file(info)
         self.refresh()
+        self.master.leftTree.refresh()
 
     # 创建按钮
     def createButton(self, info: dict):
@@ -323,7 +343,7 @@ class FileWidget(QWidget):
         self.buttonList.append(btn)
         self.body.addWidget(btn)
 
-    # 左键
+    # 按键
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
             for i in self.buttonList:
@@ -349,31 +369,16 @@ class FileWidget(QWidget):
     def newFolderFunction(self):
         text, ok = QInputDialog.getText(self, '新的文件夹', '输入文件夹名:')
         if not mydisk.is_dir_name(text):
-            msgBox = QMessageBox(
-                QMessageBox.Warning,
-                "警告!",
-                '文件夹名不合法!',
-                QMessageBox.NoButton,
-                self
-            )
-            msgBox.addButton("确认", QMessageBox.AcceptRole)
-            msgBox.exec_()
+            self.errorBox('文件夹名不合法!')
             return
         for i in self.buttonList:
             if i.text() == text:
-                msgBox = QMessageBox(
-                    QMessageBox.Warning,
-                    "警告!",
-                    '文件夹名重复!',
-                    QMessageBox.NoButton,
-                    self
-                )
-                msgBox.addButton("确认", QMessageBox.AcceptRole)
-                msgBox.exec_()
+                self.errorBox('文件夹名重复!')
                 return
         if ok and len(text) != 0:
             mydisk.create_dir(mydisk.format_path(self.path)+'/'+text)
             self.refresh()
+            self.master.leftTree.refresh()
 
     # 粘贴
     def pasetFunction(self):
@@ -384,19 +389,67 @@ class FileWidget(QWidget):
             mydisk.move(self.clipboard['path'], self.path)
         self.clipboard = None
         self.refresh()
+        self.master.leftTree.refresh()
+
+    # 后退
+    def back(self):
+        # 后退之后必然可以前进
+        self.master.forward.setDisabled(False)
+        self.now -= 1
+        self.path = self.visited[self.now]
+        self.refresh(1)
+        if self.now <= 0:
+            # 已经不能再后退
+            self.master.backward.setDisabled(True)
+            return
+
+    # 前进
+    def forward(self):
+        # 前进之后必然可以后退
+        self.master.backward.setDisabled(False)
+        self.now += 1
+        self.path = self.visited[self.now]
+        self.refresh(2)
+        if self.now == len(self.visited) - 1:
+            # 已经不能再前进
+            self.master.forward.setDisabled(True)
+            return
 
     # 刷新
-    def refresh(self):
+    def refresh(self, op: int = 0):
         if self.path in ('C:', 'c:', 'd:', 'D:'):
             self.path += '/'
+        # 普通访问路径
+        if op == 0 and self.path != self.visited[self.now]:
+            self.now += 1
+            self.visited = self.visited[:self.now]
+            self.visited.append(self.path)
+            # 普通访问路径会导致前进按钮失效
+            self.master.forward.setDisabled(True)
+            # 已经有可以后退的路径
+            if self.now > 0:
+                self.master.backward.setDisabled(False)
         self.master.addressBar.setText(self.path)
         for btn in self.buttonList:
             btn.deleteLater()
         self.buttonList = []
         self.file_list = mydisk.list_dir(self.path)
-        print(self.file_list)
+        # print(self.file_list)
         for f in self.file_list:
             self.addButton(f)
+        # print(self.now, self.visited)
+
+    # 错误提示框
+    def errorBox(self, mes: str):
+        msgBox = QMessageBox(
+                QMessageBox.Warning,
+                "警告!",
+                mes,
+                QMessageBox.NoButton,
+                self
+            )
+        msgBox.addButton("确认", QMessageBox.AcceptRole)
+        msgBox.exec_()
 
 
 class MyButton(QToolButton):
@@ -480,6 +533,7 @@ class MyButton(QToolButton):
     def editMenuFunction(self, info: dict):
         mydisk.modify_file(self.info['path'], info)
         self.master.refresh()
+        self.master.master.leftTree.refresh()
 
     # 剪切
     def cutMenu(self):
@@ -521,31 +575,16 @@ class MyButton(QToolButton):
     def renameFunction(self):
         text, ok = QInputDialog.getText(self, '重命名文件夹', '输入文件夹名:')
         if not mydisk.is_dir_name(text):
-            msgBox = QMessageBox(
-                QMessageBox.Warning,
-                "警告!",
-                '文件夹名不合法!',
-                QMessageBox.NoButton,
-                self
-            )
-            msgBox.addButton("确认", QMessageBox.AcceptRole)
-            msgBox.exec_()
+            self.errorBox('文件夹名不合法!')
             return
         for i in self.master.buttonList:
             if i.text() == text:
-                msgBox = QMessageBox(
-                    QMessageBox.Warning,
-                    "警告!",
-                    '文件夹名重复!',
-                    QMessageBox.NoButton,
-                    self
-                )
-                msgBox.addButton("确认", QMessageBox.AcceptRole)
-                msgBox.exec_()
+                self.errorBox('文件夹名重复!')
                 return
         if ok and len(text) != 0:
             mydisk.modify_dir(self.info['path'], text)
             self.master.refresh()
+            self.master.master.leftTree.refresh()
 
     # 属性
     def attributeMenu(self):
@@ -599,6 +638,7 @@ class MyButton(QToolButton):
             else:
                 self.errorBox('系统文件不能删除！')
         self.master.refresh()
+        self.master.master.leftTree.refresh()
 
     # 错误提示框
     def errorBox(self, mes: str):
