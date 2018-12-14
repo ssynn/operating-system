@@ -1,5 +1,7 @@
 import sys
-from model import explorer, terminal, task_manger
+import explorer
+import terminal
+import task_manger
 from PyQt5.QtWidgets import (QWidget, QToolButton, QApplication, QMainWindow,
                              QGridLayout, QSplitter)
 from PyQt5.QtGui import QIcon
@@ -167,7 +169,7 @@ class MainWindow(QMainWindow):
     def taskManagerCloseEvent(self):
         self.taskMangerButton.setStyleSheet('''''')
 
-    # 开启任务管理器 ------------------
+    # TODO 开启任务管理器
     def taskMangerStart(self):
         self.taskMangerButton.setStyleSheet('''
             QToolButton{
@@ -178,7 +180,7 @@ class MainWindow(QMainWindow):
         exp = task_manger.TaskManger()
         exp.after_close_signal.connect(self.taskManagerCloseEvent)
 
-    # 开启文件管理器 ------------------
+    # TODO 开启文件管理器
     def explorerStart(self):
         self.explorerButton.setStyleSheet('''
             QToolButton{
@@ -188,13 +190,13 @@ class MainWindow(QMainWindow):
         ''')
         exp = explorer.Explorer()
         exp.after_close_signal.connect(self.explorerCloseEvent)
-    
-    # 打开终端 -----------------------
+
+    # 打开终端
     def terminalStart(self):
         self.exp = terminal.Terminal()
         self.exp.show()
 
-    # 时间详情 -----------------------
+    # TODO 时间详情
     def timeWidget(self):
         print('time')
 

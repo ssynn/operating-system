@@ -702,17 +702,6 @@ def print_disk(disk: str = 'c', *lines):
         print(index, i)
 
 
-# 获取磁盘表项信息
-def disk_table(disk: str = 'c') -> list:
-    '''
-    传入磁盘名，默认为c盘
-    以列表的形式返回磁盘表项
-    '''
-    with open('virtual_disk_' + disk, 'rb+') as f:
-        data = f.readlines()[:2]
-    return data
-
-
 # 获取盘块号
 def get_block(path) -> list:
     '''
@@ -1109,7 +1098,7 @@ if __name__ == '__main__':
 
     # 获取指针测试
     # print(open_disk()[:2])
-    print(get_pointer('C:'))
+    # print(get_pointer('C:'))
 
     # 查重测试
     # print(duplicate_checking('C:/', 'a.tx', 4))
