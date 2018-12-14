@@ -231,6 +231,7 @@ class DiskPage(QWidget):
         self.formatC = QToolButton()
         self.formatC.setText('格式化C盘')
         self.formatC.setFixedSize(120, 50)
+        self.formatC.clicked.connect(lambda: mydisk.format_disk('c'))
 
         # 横向
         info = QHBoxLayout()
@@ -292,6 +293,7 @@ class DiskPage(QWidget):
         self.formatD = QToolButton()
         self.formatD.setText('格式化D盘')
         self.formatD.setFixedSize(120, 50)
+        self.formatD.clicked.connect(lambda: mydisk.format_disk('d'))
 
         # 横向
         info = QHBoxLayout()
