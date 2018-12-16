@@ -206,6 +206,8 @@ class MyTreeView(QTreeWidget):
         self.disk_d.path = 'D:/'
         self.clicked.connect(self.leftClicked)
 
+        self.refresh()
+
     # 树状视图左键方法
     def leftClicked(self, val: object):
         itemNow = self.currentItem()
