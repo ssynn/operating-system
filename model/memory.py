@@ -1,5 +1,5 @@
 import re
-import numpy as np
+import math
 
 
 class Memory():
@@ -12,7 +12,7 @@ class Memory():
         self.memory[0] = 1
         self.PCB = []
 
-    def allocate(self, orders: str) -> int:
+    def allocate(self, orders: str) -> tuple:
         '''
         外部调用
         查看空闲块总数是否够用
@@ -23,14 +23,14 @@ class Memory():
         -1代表申请失败
         '''
         if not Memory.order_check(orders):
-            return -1
+            return (-1, -1)
         table = self.get_table()
         empty_block_num = table.count(0)
 
         # 计算内存是否有足够的剩余空间
-        needed_num = int(np.ceil(len(orders) / 16)+1)
+        needed_num = int(math.ceil(len(orders) / 16)+1)
         if empty_block_num < needed_num or needed_num > 16:
-            return -1
+            return (-1, -1)
 
         allocated_block = []
         for index in range(len(table)):
@@ -49,7 +49,7 @@ class Memory():
         splited_orders = self.order_split(orders)
         for order, block in zip(splited_orders, allocated_block[1:]):
             self.write(block, 0, list(order))
-        return page
+        return (page, needed_num-1)
 
     def _to_one(self, address: int) -> bool:
         '''
@@ -61,7 +61,7 @@ class Memory():
         byte_num = int(address / 8)
         bit_num = address % 8
         self.memory[byte_num] |= (1 << bit_num)
-        print(self.format_num(self.memory[byte_num]))
+        # print(self.format_num(self.memory[byte_num]))
 
     def delete(self, address: int) -> bool:
         '''
@@ -156,7 +156,8 @@ class Memory():
         申请设备指令开头指令为ABC选一
         末尾必须为end.
         """
-        patterns = [r'[a-zA-Z]=\d', r'[a-zA-Z](\+\+|\-\-)', r'[ABC]\d\d', r'end.']
+        patterns = [r'[a-zA-Z]=\d',
+                    r'[a-zA-Z](\+\+|\-\-)', r'[ABC]\d\d', r'end.']
         exists_val = set()
         orders = orders.split(';')
         if orders[-1] != 'end.':
@@ -187,17 +188,20 @@ class Memory():
 
 
 if __name__ == "__main__":
-    orders = ['A=2;A++;A++;A++;A--;A23;end.', 'A=2;A++;B++;A23;end.', 'A=2;A++;A23;', 'A20;', 'A20;end.', 'A0', 'A', 'A++;', 'A=5', 'end.', 'A=2;end.']
-    temp = Memory()
-    print(temp.get_table())
-    page = []
-    for i in range(10):
-        page.append(temp.allocate(orders[0]))
-    print('page', page)
-    print(temp.memory)
-    print('table', temp.get_table())
-    print('read', temp.read(1, 0, 16))
-    for p in page:
-        print(temp.delete(p))
-    print(temp.memory)
-    print('table', temp.get_table())
+    orders = ['A=2;A++;A++;A++;A--;A23;end.', 'A=2;A++;B++;A23;end.',
+              'A=2;A++;A23;', '', 'A20;end.', 'A0', 'A', 'A++;', 'A=5', 'end.', 'A=2;end.']
+    for i in orders:
+        print(Memory.order_check(i))
+    # temp = Memory()
+    # print(temp.get_table())
+    # page = []
+    # for i in range(10):
+    #     page.append(temp.allocate(orders[0]))
+    # print('page', page)
+    # print(temp.memory)
+    # print('table', temp.get_table())
+    # print('read', temp.read(1, 0, 16))
+    # for p in page:
+    #     print(temp.delete(p))
+    # print(temp.memory)
+    # print('table', temp.get_table())
