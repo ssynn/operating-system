@@ -303,7 +303,7 @@ def file_to_bytes(name: bytes, ext: str, attr: int, address: int, length: int) -
 # 判断文件名是否合法
 def is_file_name(name: str) -> bool:
     name, ext = file_name_split(name)
-    if len(name.encode()) > 3:
+    if len(name.encode()) > 3 or len(name) == 0:
         return False
     if len(ext.encode()) > 2:
         return False

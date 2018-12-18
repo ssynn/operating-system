@@ -125,7 +125,7 @@ class OrderList():
         return temp
 
     def next(self):
-        if len(self.value) == 0 or self.pointer > len(self.value):
+        if len(self.value) == 0 or self.pointer >= len(self.value):
             return ''
         if self.pointer < len(self.value)-1:
             self.pointer += 1

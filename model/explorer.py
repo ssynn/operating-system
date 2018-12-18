@@ -213,6 +213,8 @@ class MyTreeView(QTreeWidget):
         itemNow = self.currentItem()
         if itemNow.text(0) == '我的电脑':
             return
+        if itemNow.path in ('C:/', 'D:/'):
+            self.refresh()
         self.master.rightWidget.path = itemNow.path
         self.master.rightWidget.refresh()
 
@@ -359,6 +361,8 @@ class FileWidget(QWidget):
                 ''')
         else:
             contextMenu = QMenu(self)
+            contextMenu.addAction(self.refreshAll())
+            contextMenu.addSeparator()
             contextMenu.addAction(self.newFile())
             contextMenu.addAction(self.newFolder())
             paset = self.pasetItem()
@@ -416,6 +420,17 @@ class FileWidget(QWidget):
             # 已经不能再前进
             self.master.forward.setDisabled(True)
             return
+
+    # 全部刷新
+    def refreshAll(self):
+        item = QAction('刷新', self)
+        item.triggered.connect(self.refreshAllFunction)
+        return item
+    
+    # 全部刷新方法
+    def refreshAllFunction(self):
+        self.refresh()
+        self.master.leftTree.refresh()
 
     # 刷新
     def refresh(self, op: int = 0):

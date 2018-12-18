@@ -375,7 +375,7 @@ class BlockPainter(QWidget):
 
     def paintEvent(self, a0):
         self.drawRectangles()
-        print('refreshed')
+        # print('refreshed')
 
     # 绘制磁盘占用块
     def drawRectangles(self):

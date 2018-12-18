@@ -30,7 +30,7 @@ class CPU():
         pass
 
     # TODO 执行
-    def exexute(self):
+    def execute(self):
         '''
         L:检测有无中断，有进行处理
         If（进程结束软中断）撤销进程；进程调度；
