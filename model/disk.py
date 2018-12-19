@@ -639,6 +639,8 @@ def move(path: str, new_path: str) -> bool:
     首先解析文件类型
     new_path 一定为目标文件夹的路径
     '''
+    if new_path.find(path) == 0:
+        return False
     path = format_path(path)
     new_path = format_path(new_path)
     if not is_dir(new_path):
@@ -655,6 +657,8 @@ def copy(path: str, new_path: str) -> bool:
     首先解析文件类型
     new_path 一定为目标文件夹的路径
     '''
+    if new_path.find(path) == 0:
+        return False
     path = format_path(path)
     new_path = format_path(new_path)
     if not is_dir(new_path):

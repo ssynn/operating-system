@@ -389,6 +389,9 @@ class FileWidget(QWidget):
     # 粘贴
     def pasetFunction(self):
         # print('paset', self.clipboard)
+        if self.path.find(self.clipboard['path']) == 0:
+            self.errorBox('目标文件夹存在于原文件夹内')
+            return
         if self.clipboard['operation'] == 'copy':
             mydisk.copy(self.clipboard['path'], self.path)
         else:
@@ -426,7 +429,7 @@ class FileWidget(QWidget):
         item = QAction('刷新', self)
         item.triggered.connect(self.refreshAllFunction)
         return item
-    
+
     # 全部刷新方法
     def refreshAllFunction(self):
         self.refresh()

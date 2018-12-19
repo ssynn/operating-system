@@ -1,9 +1,12 @@
 import memory
+import copy
+from PyQt5.QtCore import QTimer
 
 
 class CPU():
 
-    _DR = 0                          # 数据缓存寄存器
+    _DR = 0                          # 数据缓存寄存器保存变量名
+    _EAX = 0                         # 数据加法器
     _PSW = [0, 0, 0]                 # [程序结束, 时钟中断, I/O中断]
     _IR = None                       # 指令寄存器
     _PC = 0                          # 程序计数器
@@ -11,46 +14,73 @@ class CPU():
     def __init__(self):
         self._running_time = 0
         self._timeslice = 5
+        self._remaining_time = 5
         self._memory = memory.Memory()
         self._PCB_id = [0]*10
         self._ready_queue = []
         self._block_queue = []
         self._running_process = None
 
-    # TODO CPU运行方法
-    def run(self):
-        '''
-        一旦主机启动此方法就会开始运行
-        直到主机被关闭
-        '''
-        pass
-
-    # TODO 检查中断
+    # TODO 检查中断, 同时处理中断
     def check_interrupt(self):
+        '''
+        If（进程结束软中断）撤销进程；进程调度；
+        If（输入输出完成）输入输出中断处理；
+        If（时间片到）进程调度
+        '''
         pass
 
-    # TODO 执行
+    # TODO 执行方法，此方法每秒会被调用一次
     def execute(self):
         '''
         L:检测有无中断，有进行处理
-        If（进程结束软中断）撤销进程；进程调度；
-            If（输入输出完成）输入输出中断处理；
-            If（时间片到）进程调度
         根据pc取指令，若pc所指指令在主存，将指令放入IR寄存器；若不在主存，置中断，延时，goto L;
         执行IR指令；//解释执行课程设计中的指令
         pc++
         延时
         '''
+        # 检查中断
+        self.check_interrupt()
+
+        # 取指令
+        order = self.page_access(self._running_process, int(self._PC/16), self._PC % 16, 4)
+        order = ''.join(order)
+        self._PC += 4
+
+        # 执行指令
         pass
 
-    # TODO 进程调度
+        # 时间片用完设置时钟中断
+        self._remaining_time -= 1
+        if self._remaining_time == 0:
+            self._remaining_time = self._timeslice
+            self._PSW[2] = 1
+
+    # 进程调度
     def process_schedule(self):
         '''
         将正在运行的进程保存在该进程对应进程控制块中
         从就绪队列中选择一个进程
         将这个进程中进程控制块中记录的各寄存器内容恢复到CPU各个寄存器内
         '''
-        pass
+        # 如果当前有正在运行的进程则需要把当前进程就绪
+        if self._running_process is not None:
+            self._ready_queue.append(self._running_process)
+            self._running_process.status = 0
+            self._running_process = None
+        if len(self._ready_queue) == 0:
+            return
+        # 从就绪队列出队
+        self._running_process = self._ready_queue[0]
+        self._ready_queue = self._ready_queue[1:]
+        # 恢复现场
+        self._DR = self._running_process.DR
+        self._IR = self._running_process.IR
+        self._PSW = copy.deepcopy(self._running_process.PSW)
+        self._PC = self._running_process.PC
+        self._EAX = self._running_process.EAX
+        self._running_process.status = 1
+        self._running_process.cause = 0
 
     # TODO 中断处理
     def handle_interrupt(self):
@@ -81,9 +111,6 @@ class CPU():
             print('申请内存失败')
             return False
 
-        # 需要把PCB内的IR赋值为第一条指令
-        new_PCB.IR = self.page_access(new_PCB, 0, 0, 4)
-
         # 创建进程标识符
         new_PCB.id = self._PCB_id.index(0)
         self._PCB_id[new_PCB.id] = 1
@@ -104,15 +131,24 @@ class CPU():
         self._PCB_id[pcb.id] = 0
         print(pcb)
 
-    # TODO 阻塞进程
+    # 阻塞进程
     def block(self, pcb) -> bool:
         '''
         保存运行进程的CPU现场
         修改进程状态
-        将进程链入对应的阻塞队列，然后转向进程调度
+        将进程加入对应的阻塞队列
         阻塞之后一定要调用进程调度函数
         '''
-        pass
+        self._running_process = None
+        pcb.DR = self._DR
+        pcb.IR = self._IR
+        pcb.PSW = copy.deepcopy(self._PSW)
+        pcb.PC = self._PC
+        pcb.EAX = self._EAX
+        pcb.status = 2
+        pcb.cause = 1
+        self._block_queue.append(pcb)
+        self.process_schedule()
 
     # 唤醒进程
     def wake(self, _id: int) -> bool:
@@ -195,12 +231,14 @@ class PCB():
         self.id = None
         self.page_address = None
         self.length = None
+        self.EAX = 0
         self.DR = 0
         self.IR = None
         self.PSW = [0, 0, 0]
-        self.PC = 4
+        self.PC = 0
 
     def __str__(self):
+        eax = 'EAX ' + str(self.EAX)
         dr = 'DR ' + str(self.DR)
         ir = 'IR ' + str(self.IR)
         psw = 'PSW ' + str(self.PSW)
@@ -210,7 +248,7 @@ class PCB():
         status = 'status ' + str(self.status)
         cause = 'cause ' + str(self.cause)
         add = 'page_address ' + str(self.page_address)
-        return '\n'.join([dr, ir, psw, pc, length, _id, status, cause, add])
+        return '\n'.join([eax, dr, ir, psw, pc, length, _id, status, cause, add])
 
 
 if __name__ == "__main__":
