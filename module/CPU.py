@@ -1,12 +1,11 @@
 import memory
 import copy
-from PyQt5.QtCore import QTimer
 
 
 class CPU():
 
     _DR = 0                          # 数据缓存寄存器保存变量名
-    _EAX = 0                         # 数据加法器
+    _EAX = 0                         # 累加器
     _PSW = [0, 0, 0]                 # [程序结束, 时钟中断, I/O中断]
     _IR = None                       # 指令寄存器
     _PC = 0                          # 程序计数器
@@ -28,9 +27,24 @@ class CPU():
         If（输入输出完成）输入输出中断处理；
         If（时间片到）进程调度
         '''
-        pass
+        # 软中断
+        if self._PSW[0] == 1:
+            self.destroy(self._running_process)
+            self._running_process = None
+            self.process_schedule()
+            self._PSW[0] = 0
 
-    # TODO 执行方法，此方法每秒会被调用一次
+        # io中断
+        if self._PSW[1] == 1:
+            pass
+
+        # 时钟中断
+        if self._PSW[2] == 1:
+            self._remaining_time = self._timeslice
+            self.process_schedule()
+            self._PSW[2] = 0
+
+    # 执行方法，此方法每秒会被调用一次
     def execute(self):
         '''
         L:检测有无中断，有进行处理
@@ -44,17 +58,18 @@ class CPU():
 
         # 取指令
         order = self.page_access(self._running_process, int(self._PC/16), self._PC % 16, 4)
-        order = ''.join(order)
+        self._IR = ''.join(order)
         self._PC += 4
 
         # 执行指令
-        pass
+        self.interpreter()
 
         # 时间片用完设置时钟中断
         self._remaining_time -= 1
         if self._remaining_time == 0:
-            self._remaining_time = self._timeslice
             self._PSW[2] = 1
+
+        self._running_time += 1
 
     # 进程调度
     def process_schedule(self):
@@ -65,26 +80,23 @@ class CPU():
         '''
         # 如果当前有正在运行的进程则需要把当前进程就绪
         if self._running_process is not None:
+            self.save()
             self._ready_queue.append(self._running_process)
             self._running_process.status = 0
             self._running_process = None
+
+        # 当前主机内没有进程
         if len(self._ready_queue) == 0:
             return
+
         # 从就绪队列出队
         self._running_process = self._ready_queue[0]
         self._ready_queue = self._ready_queue[1:]
+
         # 恢复现场
-        self._DR = self._running_process.DR
-        self._IR = self._running_process.IR
-        self._PSW = copy.deepcopy(self._running_process.PSW)
-        self._PC = self._running_process.PC
-        self._EAX = self._running_process.EAX
+        self.load(self._running_process)
         self._running_process.status = 1
         self._running_process.cause = 0
-
-    # TODO 中断处理
-    def handle_interrupt(self):
-        pass
 
     # 创建进程
     def create(self, info: dict) -> bool:
@@ -119,7 +131,7 @@ class CPU():
         self._ready_queue.append(new_PCB)
         return True
 
-    # 撤销进程
+    # TODO 撤销进程
     def destroy(self, pcb) -> bool:
         '''
         传入PCB
@@ -132,22 +144,18 @@ class CPU():
         print(pcb)
 
     # 阻塞进程
-    def block(self, pcb) -> bool:
+    def block(self) -> bool:
         '''
         保存运行进程的CPU现场
         修改进程状态
         将进程加入对应的阻塞队列
         阻塞之后一定要调用进程调度函数
         '''
+        self.save()
+        self._running_process.status = 2
+        self._running_process.cause = 1
+        self._block_queue.append(self._running_process)
         self._running_process = None
-        pcb.DR = self._DR
-        pcb.IR = self._IR
-        pcb.PSW = copy.deepcopy(self._PSW)
-        pcb.PC = self._PC
-        pcb.EAX = self._EAX
-        pcb.status = 2
-        pcb.cause = 1
-        self._block_queue.append(pcb)
         self.process_schedule()
 
     # 唤醒进程
@@ -185,6 +193,59 @@ class CPU():
             print('块内访问越界')
             return None
         return self._memory.read(page[block_num], inner_address, length)
+
+    # 保存CPU现场
+    def save(self):
+        self._running_process.DR = self._DR
+        self._running_process.IR = self._IR
+        self._running_process.PSW = copy.deepcopy(self._PSW)
+        self._running_process.PC = self._PC
+        self._running_process.EAX = self._EAX
+
+    # 恢复CPU现场
+    def load(self, pcb):
+        self._DR = pcb.DR
+        self._IR = pcb.IR
+        self._PSW = copy.deepcopy(pcb.PSW)
+        self._PC = pcb.PC
+        self._EAX = pcb.EAX
+
+    # 指令解释器
+    def interpreter(self):
+        # 赋值指令
+        if self._IR[1] == '=':
+            self._DR = self._IR[0]
+            self._EAX = int(self._IR[2])
+            self._running_process.varMap[self._DR] = self._EAX
+
+        # 自增指令
+        elif self._IR[1] == '+':
+            self._DR = self._IR[0]
+            self._EAX = self._running_process.varMap[self._DR]
+            self._EAX += 1
+            self._running_process.varMap[self._DR] = self._EAX
+
+        # 自减指令
+        elif self._IR[1] == '-':
+            self._DR = self._IR[0]
+            self._EAX = self._running_process.varMap[self._DR]
+            self._EAX -= 1
+            self._running_process.varMap[self._DR] = self._EAX
+
+        # 结束指令
+        elif self._IR == 'end.':
+            self._PSW[0] = 1
+
+        # 申请设备指令
+        else:
+            self._DR = self._IR[0]
+            self._EAX = int(self._IR[1:3])
+            self._PSW[1] = 1
+
+    def process_status(self):
+        print(self._running_process)
+        print(self._ready_queue)
+        print(self._block_queue)
 
     def __str__(self):
         dr = 'DR ' + str(self._DR)
@@ -236,6 +297,7 @@ class PCB():
         self.IR = None
         self.PSW = [0, 0, 0]
         self.PC = 0
+        self.varMap = map()
 
     def __str__(self):
         eax = 'EAX ' + str(self.EAX)
@@ -244,20 +306,21 @@ class PCB():
         psw = 'PSW ' + str(self.PSW)
         pc = 'PC ' + str(self.PC)
         length = 'length ' + str(self.length)
-        _id = 'id ' + str(self.id)
+        _id = 'PROCESS id ' + str(self.id)
         status = 'status ' + str(self.status)
         cause = 'cause ' + str(self.cause)
         add = 'page_address ' + str(self.page_address)
-        return '\n'.join([eax, dr, ir, psw, pc, length, _id, status, cause, add])
+        var = 'varMap ' + str(self.varMap)
+        return '\n'.join(['\n', _id, eax, dr, ir, psw, pc, length, status, cause, add, var])
 
 
 if __name__ == "__main__":
     temp_exe = {
         'path': 'C:/a.ex',
-        'orders': 'A=2;A--;A23;end.'
+        'orders': 'A=2;A--;end.'
     }
     temp = CPU()
     print(temp.create(temp_exe))
-    print(temp)
-    temp.destroy(temp._ready_queue[0])
-    print(temp)
+    for i in range(10):
+        temp.execute()
+        temp.process_status()

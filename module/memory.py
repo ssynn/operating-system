@@ -156,8 +156,12 @@ class Memory():
         申请设备指令开头指令为ABC选一
         末尾必须为end.
         """
-        patterns = [r'[a-zA-Z]=\d',
-                    r'[a-zA-Z](\+\+|\-\-)', r'[ABC]\d\d', r'end.']
+        patterns = [
+            r'[a-zA-Z]=\d',
+            r'[a-zA-Z](\+\+|\-\-)',
+            r'[ABC]\d\d',
+            r'end.'
+        ]
         exists_val = set()
         orders = orders.split(';')
         if orders[-1] != 'end.':

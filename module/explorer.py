@@ -8,8 +8,8 @@ from PyQt5.QtWidgets import (QWidget, QToolButton, QApplication,
 from PyQt5.QtGui import QIcon, QFont, QCursor
 from PyQt5.QtCore import QSize, Qt, pyqtSignal
 
-# from model import floatlayout as fl
-# from model import text_edit as te
+# from module import floatlayout as fl
+# from module import text_edit as te
 import floatlayout as fl
 import text_edit as te
 import disk as mydisk
