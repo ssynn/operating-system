@@ -6,8 +6,8 @@ class CPU():
 
     _DR = 0                          # 数据缓存寄存器保存变量名
     _EAX = 0                         # 累加器
-    _PSW = [0, 0, 0]                 # [程序结束, 时钟中断, I/O中断]
-    _IR = None                       # 指令寄存器
+    _PSW = [1, 0, 0]                 # [程序结束, 时钟中断, I/O中断]
+    _IR = 'NOP'                      # 指令寄存器
     _PC = 0                          # 程序计数器
 
     def __init__(self):
@@ -29,10 +29,11 @@ class CPU():
         '''
         # 软中断
         if self._PSW[0] == 1:
-            self.destroy(self._running_process)
+            if self._running_process:
+                self.destroy(self._running_process)
             self._running_process = None
-            self.process_schedule()
-            self._PSW[0] = 0
+            if self._running_process:
+                self._PSW[0] = 0
 
         # io中断
         if self._PSW[1] == 1:
@@ -43,6 +44,9 @@ class CPU():
             self._remaining_time = self._timeslice
             self.process_schedule()
             self._PSW[2] = 0
+
+        if self._running_process is None:
+            self.process_schedule()
 
     # 执行方法，此方法每秒会被调用一次
     def execute(self):
@@ -57,9 +61,12 @@ class CPU():
         self.check_interrupt()
 
         # 取指令
-        order = self.page_access(self._running_process, int(self._PC/16), self._PC % 16, 4)
-        self._IR = ''.join(order)
-        self._PC += 4
+        if self._running_process:
+            order = self.page_access(self._running_process, int(self._PC/16), self._PC % 16, 4)
+            self._IR = ''.join(order)
+            self._PC += 4
+        else:
+            self._IR = 'NOP'
 
         # 执行指令
         self.interpreter()
@@ -141,7 +148,7 @@ class CPU():
         '''
         self._memory.delete(pcb.page_address)
         self._PCB_id[pcb.id] = 0
-        print(pcb)
+        print("\nDESTROY", pcb)
 
     # 阻塞进程
     def block(self) -> bool:
@@ -216,25 +223,29 @@ class CPU():
         if self._IR[1] == '=':
             self._DR = self._IR[0]
             self._EAX = int(self._IR[2])
-            self._running_process.varMap[self._DR] = self._EAX
+            self._running_process.varDict[self._DR] = self._EAX
 
         # 自增指令
         elif self._IR[1] == '+':
             self._DR = self._IR[0]
-            self._EAX = self._running_process.varMap[self._DR]
+            self._EAX = self._running_process.varDict[self._DR]
             self._EAX += 1
-            self._running_process.varMap[self._DR] = self._EAX
+            self._running_process.varDict[self._DR] = self._EAX
 
         # 自减指令
         elif self._IR[1] == '-':
             self._DR = self._IR[0]
-            self._EAX = self._running_process.varMap[self._DR]
+            self._EAX = self._running_process.varDict[self._DR]
             self._EAX -= 1
-            self._running_process.varMap[self._DR] = self._EAX
+            self._running_process.varDict[self._DR] = self._EAX
 
         # 结束指令
         elif self._IR == 'end.':
             self._PSW[0] = 1
+
+        # 空指令
+        elif self._IR == 'NOP':
+            pass
 
         # 申请设备指令
         else:
@@ -243,9 +254,8 @@ class CPU():
             self._PSW[1] = 1
 
     def process_status(self):
+        print(self)
         print(self._running_process)
-        print(self._ready_queue)
-        print(self._block_queue)
 
     def __str__(self):
         dr = 'DR ' + str(self._DR)
@@ -255,10 +265,10 @@ class CPU():
         PCB_id = 'PCB_id ' + str(self._PCB_id)
         running_time = 'running_time ' + str(self._running_time)
         timeslice = 'timeslice ' + str(self._timeslice)
-        memory = 'memory ' + str(self._memory.memory)
+        # memory = 'memory ' + str(self._memory.memory)
         ready_queue = 'ready_queue ' + str(self._ready_queue)
         block_queue = 'block_queue ' + str(self._block_queue)
-        return '\n'.join([dr, ir, psw, pc, PCB_id, running_time, timeslice, ready_queue, block_queue, memory])
+        return '\n'.join(['\nCPU', dr, ir, psw, pc, PCB_id, running_time, timeslice, ready_queue, block_queue])
 
     @property
     def timeslice(self):
@@ -297,7 +307,7 @@ class PCB():
         self.IR = None
         self.PSW = [0, 0, 0]
         self.PC = 0
-        self.varMap = map()
+        self.varDict = dict()
 
     def __str__(self):
         eax = 'EAX ' + str(self.EAX)
@@ -310,17 +320,19 @@ class PCB():
         status = 'status ' + str(self.status)
         cause = 'cause ' + str(self.cause)
         add = 'page_address ' + str(self.page_address)
-        var = 'varMap ' + str(self.varMap)
-        return '\n'.join(['\n', _id, eax, dr, ir, psw, pc, length, status, cause, add, var])
+        var = 'varDict ' + str(self.varDict)
+        return '\n'.join(['\nPCB', _id, eax, dr, ir, psw, pc, length, status, cause, add, var])
 
 
 if __name__ == "__main__":
     temp_exe = {
         'path': 'C:/a.ex',
-        'orders': 'A=2;A--;end.'
+        'orders': 'A=2;A--;A--;A--;A--;A--;A--;end.'
     }
     temp = CPU()
-    print(temp.create(temp_exe))
-    for i in range(10):
+    for i in range(2):
+        temp.create(temp_exe)
+    for i in range(17):
+        # print('\n\nTime', temp.running_time+1)
         temp.execute()
-        temp.process_status()
+        # temp.process_status()
