@@ -38,7 +38,7 @@ class Device():
             self.useC[0] = _id
             return True
 
-        # 没用空闲的设备可供分配则进入等待队列
+        # 没有空闲的设备可供分配则进入等待队列
         self.waiting.append([_id, device, time])
         return False
 
@@ -74,4 +74,21 @@ class Device():
                         break
 
     def wake(self, _id: int):
-        self.CPU.wake(_id)
+        self.CPU._need_wake.append(_id)
+        self.CPU._PSW[1] = 1
+
+    def get_status(self):
+        '''
+        返回六个设备的状态[
+            [使用A1的设备, 剩余时间],
+            ...
+        ]
+        '''
+        return [
+            [self.useA[0], self.deviceA[0]],
+            [self.useA[1], self.deviceA[1]],
+            [self.useA[2], self.deviceA[2]],
+            [self.useB[0], self.deviceB[0]],
+            [self.useB[1], self.deviceB[1]],
+            [self.useC[0], self.deviceC[0]],
+        ]
