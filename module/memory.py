@@ -15,6 +15,7 @@ class Memory():
     def allocate(self, orders: str) -> tuple:
         '''
         外部调用
+        这里不做命令检查
         查看空闲块总数是否够用
         如果够用，先分配一块用来存放页表
         页表占一个物理块，最多可以申请16个物理块
@@ -22,8 +23,6 @@ class Memory():
         返回页表分配到的地址
         -1代表申请失败
         '''
-        if not Memory.order_check(orders):
-            return (-1, -1)
         table = self.get_table()
         empty_block_num = table.count(0)
 
@@ -146,40 +145,6 @@ class Memory():
     @staticmethod
     def format_num(num: int) -> str:
         return bin(num)[2:].zfill(8)
-
-    @staticmethod
-    def order_check(orders: str) -> bool:
-        """
-        首先每一条指令长度只能为4
-        初始化指令
-        操作指令的第一个字符必须之前使用初始化指令初始化过
-        申请设备指令开头指令为ABC选一
-        末尾必须为end.
-        """
-        patterns = [
-            r'[a-zA-Z]=\d',
-            r'[a-zA-Z](\+\+|\-\-)',
-            r'[ABC]\d\d',
-            r'end.'
-        ]
-        exists_val = set()
-        orders = orders.split(';')
-        if orders[-1] != 'end.':
-            return False
-        # print(orders)
-        for index, order in enumerate(orders):
-            # print(order, exists_val)
-            if re.fullmatch(patterns[0], order):
-                exists_val.add(order[0])
-                continue
-            if re.fullmatch(patterns[1], order) and order[0] in exists_val:
-                continue
-            if re.fullmatch(patterns[2], order):
-                continue
-            if index == len(orders) - 1 and order == 'end.':
-                continue
-            return False
-        return True
 
     @staticmethod
     def order_split(order: str):

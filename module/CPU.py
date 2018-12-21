@@ -11,12 +11,13 @@ class CPU():
     _IR = 'NOP'                      # 指令寄存器
     _PC = 0                          # 程序计数器
 
-    def __init__(self):
+    def __init__(self, master):
+        self.master = master
         self._running_time = 0
         self._timeslice = 5
         self._remaining_time = 5
         self._memory = memory.Memory()
-        self._device = device.Device()
+        self._device = device.Device(self)
         self._PCB_id = [0]*10
         self._ready_queue = []
         self._block_queue = []
@@ -27,10 +28,11 @@ class CPU():
     def run(self):
         self.execute()
         info = {
-            'PID': self.running_time if self.running_time else 'None',
+            'PID': self._running_process.id if self._running_process else 'None',
+            'pages': self.get_locks(),
             'order': self._IR,
             'program': self.get_orders_all(),
-            'tempRes': str(self._DR) + str(self._EAX) if self._DR else 'None',
+            'tempRes': str(self._DR) + '=' + str(self._EAX) if self._DR else 'None',
             'time': self._running_time,
             'timeSlice': self._timeslice,
             'PSW': ''.join([str(i) for i in self._PSW]),
@@ -43,7 +45,7 @@ class CPU():
         self._device.run()
         return info
 
-    # TODO 检查中断, 同时处理中断
+    # 检查中断, 同时处理中断
     def check_interrupt(self):
         '''
         If（进程结束软中断）撤销进程；进程调度；
@@ -63,6 +65,7 @@ class CPU():
         # io中断
         if self._PSW[1] == 1:
             if self._DR:
+                self._running_process.device = 'A'
                 # 成功申请到设备
                 if self._device.request(self._running_process.id, self._DR, self._EAX):
                     self._running_process.cause = 2
@@ -70,8 +73,13 @@ class CPU():
                 # 没有成功申请到设备
                 else:
                     self._running_process.cause = 1
+
             for i in self._need_wake:
                 self.wake(i)
+
+            self._running_process = None
+            if self._PSW[2] == 0:
+                self.process_schedule()
             self._PSW[1] = 0
 
         # 时钟中断
@@ -139,12 +147,9 @@ class CPU():
         self._running_process.cause = 0
 
     # 创建进程
-    def create(self, info: dict) -> bool:
+    def create(self, orders: str) -> bool:
         '''
-        传入{
-            path: str,
-            orders: str
-        }
+        传入程序
         创建FCB
         存入主存
         加入就绪队列
@@ -154,11 +159,10 @@ class CPU():
             return False
 
         # 创建FCB
-        new_PCB = PCB(info)
+        new_PCB = PCB()
 
         # 存入主存
-        new_PCB.page_address, new_PCB.length = self._memory.allocate(
-            info['orders'])
+        new_PCB.page_address, new_PCB.length = self._memory.allocate(orders)
         if new_PCB.page_address == -1:
             print('申请内存失败')
             return False
@@ -184,7 +188,7 @@ class CPU():
         '''
         self._memory.delete(pcb.page_address)
         self._PCB_id[pcb.id] = 0
-        self.pcb.end = self._running_time
+        pcb.end = self._running_time
         self._result_queue.append(pcb)
         # print("\nDESTROY", pcb)
 
@@ -316,6 +320,13 @@ class CPU():
     def process_status(self):
         print(self)
         print(self._running_process)
+
+    # 获取当前进程拥有的内存块
+    def get_locks(self):
+        if self._running_process is None:
+            return []
+        temp = self._running_process
+        return self._memory.read(temp.page_address, 0, temp.length)
 
     def __str__(self):
         dr = 'DR ' + str(self._DR)
