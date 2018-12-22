@@ -39,10 +39,26 @@ class Device():
             return True
 
         # 没有空闲的设备可供分配则进入等待队列
+        for p in self.waiting:
+            if p[0] == _id:
+                return False
         self.waiting.append([_id, device, time])
         return False
 
     def run(self):
+        temp = []
+        # 如果有空出来的设备则将设备分配给设备
+        for p in self.waiting:
+            if self.request(p[0], p[1], p[2]):
+                # 如果分配成功则在阻塞队列中改变对应PCB的阻塞原因
+                for pcb in self.CPU._block_queue:
+                    if pcb.id == p[0]:
+                        pcb.cause = 2
+                        temp.append(p)
+                        break
+        for p in temp:
+            self.waiting.remove(p)
+
         for i in range(3):
             if self.deviceA[i] != 0:
                 self.deviceA[i] -= 1
@@ -62,16 +78,6 @@ class Device():
         if self.deviceC[0] == 0 and self.useC[0] != -1:
             self.wake(self.useC[0])
             self.useC[0] = -1
-
-        # 如果有空出来的设备则将设备分配给设备
-        for p in self.waiting:
-            if self.request(p[0], p[1], p[2]):
-                # 如果分配成功则在阻塞队列中改变对应PCB的阻塞原因
-                for pcb in self.CPU._block_queue:
-                    if pcb.id == p[0]:
-                        pcb.cause = 2
-                        self.waiting.remove(p)
-                        break
 
     def wake(self, _id: int):
         self.CPU._need_wake.append(_id)

@@ -4,6 +4,7 @@ import re
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QTextEdit, QGridLayout, QLabel, QTableWidgetItem, QTableWidget, QAbstractItemView,
     QHBoxLayout, QVBoxLayout, QToolButton, QMessageBox)
+from PyQt5.QtWidgets import QLineEdit
 from PyQt5.QtGui import QIcon, QPainter, QColor
 from PyQt5.QtCore import Qt, QSize, pyqtSignal, QTimer
 
@@ -44,13 +45,15 @@ class CPUWidget(QWidget):
 
         self.setMyStyle()
 
+        self.setFunction()
+
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.run)
         self.timer.start(1000)
 
     def run(self):
         info = self.cpu.run()
-        print(info)
+        # print(info)
         self.refresh(info)
 
     def setTables(self):
@@ -82,6 +85,13 @@ class CPUWidget(QWidget):
 
         self.cpuInfo = CPUInfo()
 
+        # 命令显示
+        self.orderDisp = OrdersDisplay()
+
+        la = QHBoxLayout()
+        la.addWidget(self.cpuInfo)
+        la.addWidget(self.orderDisp)
+
         self.order = QTextEdit()
         self.order.setFixedSize(400, 150)
 
@@ -93,7 +103,7 @@ class CPUWidget(QWidget):
 
         self.mLayout = QVBoxLayout()
         self.mLayout.addWidget(self.memory)
-        self.mLayout.addWidget(self.cpuInfo)
+        self.mLayout.addLayout(la)
         self.mLayout.addWidget(self.order)
         self.mLayout.addWidget(self.execute)
 
@@ -115,11 +125,102 @@ class CPUWidget(QWidget):
         self.body.addWidget(self.rWidget)
 
     def createProgram(self, orders: str):
-        if self.order_check(orders) and self.cpu.create(orders):
-            print('seccuss')
-            pass
+        if self.order_check(orders):
+            if not self.cpu.create(orders):
+                self.errorBox('创建失败')
+            else:
+                msgBox = QMessageBox(
+                    QMessageBox.Warning,
+                    "提示",
+                    "创建成功！",
+                    QMessageBox.NoButton,
+                    self
+                )
+                msgBox.addButton("确认", QMessageBox.AcceptRole)
+                msgBox.exec_()
+
+    def setFunction(self):
+        self.time.stop.clicked.connect(lambda: self.stop(self.time.stop))
+        self.time.closeCPU.clicked.connect(
+            lambda: self.closeCPU(self.time.closeCPU)
+        )
+        self.time.restart.clicked.connect(self.restart)
+        self.cpuInfo.timeSlice.textChanged.connect(lambda: self.cpu.setTimeslice(self.cpuInfo.timeSlice.text()))
+
+    def stop(self, btn: QToolButton):
+        if self.timer.isActive():
+            self.timer.stop()
+            btn.setText('继续')
+            btn.setStyleSheet('''
+                QToolButton{
+                    background-color: #1976D2;
+                }
+            ''')
         else:
-            self.errorBox('创建失败')
+            self.timer.start(1000)
+            btn.setText('暂停')
+            btn.setStyleSheet('''
+                QToolButton{
+                    background-color: #FF9800;
+                }
+            ''')
+
+    def closeCPU(self, btn: QToolButton):
+        if self.timer.isActive():
+            self.timer.stop()
+            self.cpu.off()
+            self.refresh(self.cpu.get_info())
+            self.answer.init()
+
+            btn.setText('开机')
+            btn.setStyleSheet('''
+                QToolButton{
+                    background-color: #607D8B;
+                }
+            ''')
+            self.time.stop.setDisabled(True)
+            self.time.stop.setText('暂停')
+            self.time.stop.setStyleSheet('''
+                QToolButton{
+                    background-color: #BDBDBD;
+                }
+            ''')
+
+        else:
+            self.timer.start(1000)
+            self.time.stop.setDisabled(False)
+            self.time.stop.setText('暂停')
+            self.time.stop.setStyleSheet('''
+                QToolButton{
+                    background-color: #FF9800;
+                }
+            ''')
+            btn.setText('关机')
+            btn.setStyleSheet('''
+                QToolButton{
+                    background-color: #FF5252;
+                }
+            ''')
+
+    def restart(self):
+        self.cpu.off()
+        self.refresh(self.cpu.get_info())
+        self.answer.init()
+        self.time.stop.setDisabled(False)
+        self.time.stop.setText('暂停')
+        self.time.stop.setStyleSheet('''
+            QToolButton{
+                background-color: #FF9800;
+            }
+        ''')
+        self.time.closeCPU.setText('关机')
+        self.time.closeCPU.setStyleSheet('''
+            QToolButton{
+                background-color: #FF5252;
+            }
+        ''')
+        if not self.timer.isActive():
+            self.timer.start(1000)
 
     def order_check(self, orders: str) -> bool:
         """
@@ -136,7 +237,7 @@ class CPUWidget(QWidget):
             r'end.'
         ]
         exists_val = set()
-        orders = orders.split(';')
+        orders = orders.strip(';').split(';')
         if orders[-1] != 'end.':
             self.errorBox('结尾必须为终止语句!')
             return False
@@ -148,7 +249,7 @@ class CPUWidget(QWidget):
                 continue
             if re.fullmatch(patterns[1], order):
                 if order[0] not in exists_val:
-                    self.errorBox('使用未定义的变量: ' + self.order + ';')
+                    self.errorBox('使用未定义的变量: ' + order + ';')
                     return False
                 continue
             if re.fullmatch(patterns[2], order):
@@ -158,7 +259,7 @@ class CPUWidget(QWidget):
                 continue
             if index == len(orders) - 1 and order == 'end.':
                 continue
-            self.errorBox('未定义的指令: ' + self.order + ';')
+            self.errorBox('未定义的指令: ' + order + ';')
             return False
         return True
 
@@ -179,6 +280,10 @@ class CPUWidget(QWidget):
         self.memory.refresh(info['memory'], info['pages'])
         self.time.refresh(info['time'])
         self.device.refresh(info['device'])
+        self.ready.refresh(info['ready'], info['time'])
+        self.block.refresh(info['block'], info['time'])
+        self.answer.refresh(info['result'], info['time'])
+        self.orderDisp.refresh(info['program'], int(info['PC'])-4)
 
     def setMyStyle(self):
         self.setStyleSheet('''
@@ -281,14 +386,14 @@ class BlockPainter(QWidget):
 class ReadyQueue(QTableWidget):
     def __init__(self):
         super().__init__(0, 2)
-        self.setFixedSize(162, 150)
+        self.setFixedSize(262, 150)
         self.setHorizontalHeaderLabels(['ID', '等待时间'])
         self.verticalHeader().setVisible(False)
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.setFocusPolicy(Qt.NoFocus)
         self.setShowGrid(False)
-        self.setColumnWidth(0, 50)
-        self.setColumnWidth(1, 100)
+        self.setColumnWidth(0, 120)
+        self.setColumnWidth(1, 130)
         self.setMyStyle()
 
     def addPCB(self, _id: int, time: int):
@@ -300,13 +405,13 @@ class ReadyQueue(QTableWidget):
         timeLabel.setTextAlignment(Qt.AlignCenter)
         self.setItem(self.rowCount()-1, 0, _idLabel)
         self.setItem(self.rowCount()-1, 1, timeLabel)
+        self.setAlternatingRowColors(True)
 
-    # TODO
-    def refresh(self, queue):
+    def refresh(self, queue, time):
         while self.rowCount() != 0:
             self.removeRow(0)
         for pcb in queue:
-            pass
+            self.addPCB(pcb.id, time-pcb.enqueueTime)
 
     def setMyStyle(self):
         self.verticalScrollBar().setStyleSheet('''
@@ -326,10 +431,11 @@ class BlockQueue(QTableWidget):
         self.verticalHeader().setVisible(False)
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.setFocusPolicy(Qt.NoFocus)
+        self.setAlternatingRowColors(True)
         self.setShowGrid(False)
         self.setColumnWidth(0, 50)
-        self.setColumnWidth(1, 100)
-        self.setColumnWidth(2, 100)
+        self.setColumnWidth(1, 80)
+        self.setColumnWidth(2, 120)
         self.setMyStyle()
 
     def addPCB(self, _id: int, time: int, cause: str):
@@ -347,14 +453,15 @@ class BlockQueue(QTableWidget):
         self.setItem(self.rowCount()-1, 1, timeLabel)
         self.setItem(self.rowCount()-1, 2, causeLable)
 
-        # TODO
-
-    # TODO
-    def refresh(self, queue):
+    # 每秒跟新一次阻塞队列
+    def refresh(self, queue, time):
+        # print(queue, time)
         while self.rowCount() != 0:
             self.removeRow(0)
         for pcb in queue:
-            pass
+            cause = ['未阻塞', '未申请到设备: ', '占用设备: ']
+            self.addPCB(pcb.id, time-pcb.enqueueTime,
+                        cause[pcb.cause] + pcb.device)
 
     def setMyStyle(self):
         self.verticalScrollBar().setStyleSheet('''
@@ -375,9 +482,10 @@ class AnswerQueue(QTableWidget):
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.setFocusPolicy(Qt.NoFocus)
         self.setShowGrid(False)
+        self.setAlternatingRowColors(True)
         self.setColumnWidth(0, 50)
-        self.setColumnWidth(1, 100)
-        self.setColumnWidth(2, 100)
+        self.setColumnWidth(1, 80)
+        self.setColumnWidth(2, 120)
         self.setMyStyle()
 
     def addPCB(self, _id: int, time: int, answer: str):
@@ -395,12 +503,15 @@ class AnswerQueue(QTableWidget):
         self.setItem(self.rowCount()-1, 1, timeLabel)
         self.setItem(self.rowCount()-1, 2, answerLable)
 
-    # TODO
-    def refresh(self, queue):
+    # 把新的结果插入队列
+    def refresh(self, pcb, time):
+        if pcb:
+            self.addPCB(pcb.id, time-pcb.start, str(pcb.varDict))
+
+    # 清空结果队列
+    def init(self):
         while self.rowCount() != 0:
             self.removeRow(0)
-        for pcb in queue:
-            pass
 
     def setMyStyle(self):
         self.verticalScrollBar().setStyleSheet('''
@@ -433,7 +544,7 @@ class CPUInfo(QWidget):
         dataNowLabel.setText('中间结果:')
 
         runningTimeLabel = QLabel()
-        runningTimeLabel.setText('运行总时间:')
+        runningTimeLabel.setText('时间片剩余:')
 
         timeSliceLabel = QLabel()
         timeSliceLabel.setText('时间片长度:')
@@ -467,11 +578,13 @@ class CPUInfo(QWidget):
         self.runningTime = QLabel()
         self.runningTime.setText('0')
 
-        self.timeSlice = QLabel()
+        # 时间片显示以及调整
+        self.timeSlice = QLineEdit()
         self.timeSlice.setText('5')
+        self.timeSlice.setFixedSize(40, 35)
 
         self.PSW = QLabel()
-        self.PSW.setText('000')
+        self.PSW.setText('100')
 
         self.PC = QLabel()
         self.PC.setText('0')
@@ -490,11 +603,11 @@ class CPUInfo(QWidget):
         self.body.addWidget(self.dataWidget)
 
     def refresh(self, info: dict):
-        self.runningProcess.setText(info['PID'])
+        self.runningProcess.setText(str(info['PID']))
         self.orderNow.setText(info['order'])
         self.dataNow.setText(info['tempRes'])
-        self.runningTime.setText(info['time'])
-        self.timeSlice.setText(info['timeSlice'])
+        self.runningTime.setText(str(info['remaining']))
+        self.timeSlice.setText(str(info['timeSlice']))
         self.PSW.setText(info['PSW'])
         self.PC.setText(info['PC'])
 
@@ -502,11 +615,16 @@ class CPUInfo(QWidget):
         self.setStyleSheet('''
             QWidget{
                 background-color: white;
+                /*border: 1px solid black;*/
             }
             QLabel{
                 color: #707070;
                 font-family: 微软雅黑;
                 font-size: 15px;
+            }
+            QLineEdit{
+                border: 1px solid #BDBDBD;
+                border-radius: 5px;
             }
         ''')
         self.dataWidget.setStyleSheet('''
@@ -552,7 +670,7 @@ class TimeBlock(QWidget):
         h = time // 3600
         m = (time % 3600) // 60
         s = (time % 3600) % 60
-        self.time.setText('{0:2}:{1:2}:{2:2}'.format(h, m, s))
+        self.time.setText('{0:02}:{1:02}:{2:02}'.format(h, m, s))
 
     def setMystyle(self):
         self.setStyleSheet('''
@@ -628,12 +746,12 @@ class DeviceStatus(QWidget):
         self.title.setFixedHeight(50)
         self.body.addWidget(self.title)
 
-        self.addPCB('A1', '无', 0)
-        self.addPCB('A2', '无', 0)
-        self.addPCB('A3', '无', 0)
-        self.addPCB('B1', '无', 0)
-        self.addPCB('B2', '无', 0)
-        self.addPCB('C', '无', 0)
+        self.addPCB('A1', 'None', 0)
+        self.addPCB('A2', 'None', 0)
+        self.addPCB('A3', 'None', 0)
+        self.addPCB('B1', 'None', 0)
+        self.addPCB('B2', 'None', 0)
+        self.addPCB('C', 'None', 0)
 
         self.setLayout(self.body)
         self.setMyStyle()
@@ -675,14 +793,14 @@ class DeviceStatus(QWidget):
             self.time[i].setText(str(info[i][1]))
 
     def setBackgroundColor(self, item, used: bool = False):
-        if used:
-            item.setStylesheet('''
+        if not used:
+            item.setStyleSheet('''
                 QWidget{
                     background-color: #009688;
                 }
             ''')
         else:
-            item.setStylesheet('''
+            item.setStyleSheet('''
                 QWidget{
                     background-color: #FF5252;
                 }
@@ -705,8 +823,70 @@ class DeviceStatus(QWidget):
         ''')
 
 
+class OrdersDisplay(QTableWidget):
+    def __init__(self):
+        super().__init__(0, 1)
+        self.setFixedSize(150, 300)
+        self.verticalHeader().setVisible(False)
+        self.horizontalHeader().setVisible(False)
+        self.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.setFocusPolicy(Qt.NoFocus)
+        self.setShowGrid(False)
+        self.setMyStyle()
+
+    def refresh(self, orders: str, pc: int):
+        while self.rowCount() != 0:
+            self.removeRow(0)
+        if orders == '':
+            return
+        orders = orders.split(';')
+        for index, order in enumerate(orders):
+            temp_label = QLabel()
+            temp_label.setText(order+';')
+            temp_label.setAlignment(Qt.AlignCenter)
+            self.insertRow(self.rowCount())
+            self.setCellWidget(self.rowCount()-1, 0, temp_label)
+            self.setRowHeight(self.rowCount()-1, 25)
+            if index < pc // 4:
+                temp_label.setStyleSheet('''
+                    QLabel{
+                        color: #707070;
+                    }
+                ''')
+            elif index == pc // 4:
+                temp_label.setStyleSheet('''
+                    QLabel{
+                        color: #1976D2;
+                    }
+                ''')
+            else:
+                temp_label.setStyleSheet('''
+                    QLabel{
+                        color: #212121;
+                    }
+                ''')
+
+    def setMyStyle(self):
+        self.setStyleSheet('''
+            QWidget{
+                background-color: white;
+            }
+            QLabel{
+                font-family: 微软雅黑;
+                font-size: 20px;
+            }
+        ''')
+        self.verticalScrollBar().setStyleSheet('''
+            QScrollBar{background:transparent; width: 10px;}
+            QScrollBar::handle{background:lightgray; border:2px solid transparent; border-radius:5px;}
+            QScrollBar::handle:hover{background:gray;}
+            QScrollBar::sub-line{background:transparent;}
+            QScrollBar::add-line{background:transparent;}
+        ''')
+
+
 if __name__ == "__main__":
-    order = 'A=2;A--;A--;A--;A--;A--;A--;end.'
+    order = 'A=2;A--;A--;A--;A--;A--;A--;A--;A--;A--;A--;A--;A--;A--;A--;A--;A--;end.'
     app = QApplication(sys.argv)
     text = CPUWidget()
     text.show()

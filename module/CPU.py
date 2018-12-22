@@ -7,7 +7,7 @@ class CPU():
 
     _DR = 0                          # 数据缓存寄存器保存变量名
     _EAX = 0                         # 累加器
-    _PSW = [1, 0, 0]                 # [程序结束, 时钟中断, I/O中断]
+    _PSW = [0, 0, 0]                 # [程序结束, 时钟中断, I/O中断]
     _IR = 'NOP'                      # 指令寄存器
     _PC = 0                          # 程序计数器
 
@@ -18,16 +18,25 @@ class CPU():
         self._remaining_time = 5
         self._memory = memory.Memory()
         self._device = device.Device(self)
-        self._PCB_id = [0]*10
+        self._PCB_id = 0
+        self._count = 0
         self._ready_queue = []
         self._block_queue = []
-        self._result_queue = []
+        self._result = None
+        self._request = False                   # 表明是否有进程申请设备
         self._need_wake = []
         self._running_process = None
 
     def run(self):
         self.execute()
-        info = {
+        self._device.run()
+        self._running_time += 1
+        info = self.get_info()
+        self._result = None
+        return info
+
+    def get_info(self):
+        return {
             'PID': self._running_process.id if self._running_process else 'None',
             'pages': self.get_locks(),
             'order': self._IR,
@@ -35,15 +44,15 @@ class CPU():
             'tempRes': str(self._DR) + '=' + str(self._EAX) if self._DR else 'None',
             'time': self._running_time,
             'timeSlice': self._timeslice,
+            'remaining': self._remaining_time,
             'PSW': ''.join([str(i) for i in self._PSW]),
             'PC': str(self._PC),
             'ready': self._ready_queue,
             'block': self._block_queue,
             'memory': self._memory.get_table(),
-            'device': self._device.get_status()
+            'device': self._device.get_status(),
+            'result': self._result
         }
-        self._device.run()
-        return info
 
     # 检查中断, 同时处理中断
     def check_interrupt(self):
@@ -55,31 +64,35 @@ class CPU():
         # 软中断, 如果没有进程从就绪队列取出则不关闭中断
         if self._PSW[0] == 1:
             if self._running_process:
-                self.destroy(self._running_process)
-            self._running_process = None
+                self.destroy()
             if self._PSW[2] == 0:
                 self.process_schedule()
-            if self._running_process:
-                self._PSW[0] = 0
+            self._PSW[0] = 0
 
         # io中断
         if self._PSW[1] == 1:
-            if self._DR:
-                self._running_process.device = 'A'
+            # 有进程申请内存
+            if self._request:
+                self._running_process.device = self._DR
+
                 # 成功申请到设备
-                if self._device.request(self._running_process.id, self._DR, self._EAX):
+                if self._device.request(self._running_process.id, self._DR, self._EAX+1):
                     self._running_process.cause = 2
 
                 # 没有成功申请到设备
                 else:
                     self._running_process.cause = 1
+                self.block()
+                self._request = None
 
+            # 唤醒需要唤醒的进程
             for i in self._need_wake:
                 self.wake(i)
 
-            self._running_process = None
-            if self._PSW[2] == 0:
+            # 只有当时间片没有用完而且当前运行进程为空才进行调度
+            if self._PSW[2] == 0 and self._running_process is None:
                 self.process_schedule()
+
             self._PSW[1] = 0
 
         # 时钟中断
@@ -117,8 +130,6 @@ class CPU():
         if self._remaining_time == 0:
             self._PSW[2] = 1
 
-        self._running_time += 1
-
     # 进程调度
     def process_schedule(self):
         '''
@@ -130,8 +141,8 @@ class CPU():
         if self._running_process is not None:
             self.save()
             self._ready_queue.append(self._running_process)
+            self._running_process.enqueueTime = self._running_time
             self._running_process.status = 0
-            self._running_process = None
 
         # 当前主机内没有进程
         if len(self._ready_queue) == 0:
@@ -154,7 +165,7 @@ class CPU():
         存入主存
         加入就绪队列
         '''
-        if self._PCB_id.count(0) == 0:
+        if self._count >= 10:
             print('进程数已达10')
             return False
 
@@ -168,28 +179,31 @@ class CPU():
             return False
 
         # 创建进程标识符
-        new_PCB.id = self._PCB_id.index(0)
-        self._PCB_id[new_PCB.id] = 1
+        new_PCB.id = self._PCB_id
+        self._PCB_id += 1
+        self._count += 1
 
         # 记录创建时间
         new_PCB.start = self._running_time
 
         # 加入就绪队列
         self._ready_queue.append(new_PCB)
+        new_PCB.enqueueTime = self._running_time
         return True
 
     # 撤销进程
-    def destroy(self, pcb) -> bool:
+    def destroy(self) -> bool:
         '''
         传入PCB
         释放内存
         删除PCB
         显示结果
         '''
-        self._memory.delete(pcb.page_address)
-        self._PCB_id[pcb.id] = 0
-        pcb.end = self._running_time
-        self._result_queue.append(pcb)
+        self._memory.delete(self._running_process.page_address)
+        self._count -= 1
+        self._running_process.end = self._running_time
+        self._result = self._running_process
+        self._running_process = None
         # print("\nDESTROY", pcb)
 
     # 阻塞进程
@@ -202,10 +216,9 @@ class CPU():
         '''
         self.save()
         self._running_process.status = 2
-        self._running_process.cause = 1
         self._block_queue.append(self._running_process)
+        self._running_process.enqueueTime = self._running_time
         self._running_process = None
-        self.process_schedule()
 
     # 唤醒进程
     def wake(self, _id: int) -> bool:
@@ -217,6 +230,7 @@ class CPU():
         for p in self._block_queue:
             if p.id == _id:
                 self._ready_queue.append(p)
+                p.enqueueTime = self._running_time
                 self._block_queue.remove(p)
                 p.status = 0
                 p.cause = 0
@@ -310,13 +324,16 @@ class CPU():
         elif self._IR == 'NOP':
             self._DR = None
             self._EAX = None
+            self._PSW[0] = 1
 
         # 申请设备指令
         else:
             self._DR = self._IR[0]
             self._EAX = int(self._IR[1:3])
+            self._request = True
             self._PSW[1] = 1
 
+    # 获取进程状态
     def process_status(self):
         print(self)
         print(self._running_process)
@@ -326,29 +343,47 @@ class CPU():
         if self._running_process is None:
             return []
         temp = self._running_process
-        return self._memory.read(temp.page_address, 0, temp.length)
+        return [temp.page_address] + self._memory.read(temp.page_address, 0, temp.length)
+
+    # 关机
+    def off(self):
+        self._DR = None
+        self._IR = 'NOP'
+        self._PSW = [1, 0, 0]
+        self._PC = 0
+        self._EAX = 0
+        self._running_time = 0
+        self._timeslice = 5
+        self._remaining_time = 4
+        self._memory = memory.Memory()
+        self._device = device.Device(self)
+        self._PCB_id = 0
+        self._count = 0
+        self._ready_queue = []
+        self._block_queue = []
+        self._result = None
+        self._need_wake = []
+        self._running_process = None
 
     def __str__(self):
         dr = 'DR ' + str(self._DR)
         ir = 'IR ' + str(self._IR)
         psw = 'PSW ' + str(self._PSW)
         pc = 'PC ' + str(self._PC)
-        PCB_id = 'PCB_id ' + str(self._PCB_id)
         running_time = 'running_time ' + str(self._running_time)
         timeslice = 'timeslice ' + str(self._timeslice)
         # memory = 'memory ' + str(self._memory.memory)
         ready_queue = 'ready_queue ' + str(self._ready_queue)
         block_queue = 'block_queue ' + str(self._block_queue)
-        return '\n'.join(['\nCPU', dr, ir, psw, pc, PCB_id, running_time, timeslice, ready_queue, block_queue])
+        return '\n'.join(['\nCPU', dr, ir, psw, pc, running_time, timeslice, ready_queue, block_queue])
 
-    @property
-    def timeslice(self):
-        return self._timeslice
-
-    @timeslice.setter
-    def timeslice(self, length: int):
-        if length >= 1:
-            self._timeslice = length
+    def setTimeslice(self, time: str):
+        if time == '' or not time.isalnum():
+            time = 1
+        time = int(time)
+        self._timeslice = time
+        if self._timeslice < 1:
+            self._timeslice = 1
 
     @property
     def running_time(self):
@@ -379,6 +414,7 @@ class PCB():
         self.PC = 0
         self.varDict = dict()
         self.device = None
+        self.enqueueTime = 0
         self.start = 0
         self.end = 0
 
