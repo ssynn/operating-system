@@ -19,8 +19,9 @@ import orders
 class Explorer(QWidget):
     after_close_signal = pyqtSignal()
 
-    def __init__(self):
+    def __init__(self, master):
         super().__init__()
+        self.master = master
         self.initUI()
 
     def initUI(self):
@@ -473,6 +474,7 @@ class FileWidget(QWidget):
 
 
 class MyButton(QToolButton):
+
     def __init__(self, master, info: dict):
         super().__init__()
         self.master = master
@@ -492,7 +494,10 @@ class MyButton(QToolButton):
         # print(self.buttonType, self.info)
         # TODO 可执行文件双击方法, 运行程序
         if self.buttonType == 'exe':
-            # print('EXECUTE', self.info['name']+'.'+self.info['ext'])
+            _file = mydisk.open_file(self.info['path'])
+            if not _file:
+                self.errorBox('打开文件错误')
+            self.master.master.master.execute(_file['text'])
             return
         # 文件夹双击方法, 进入此文件夹
         if self.buttonType == 'folder':
@@ -514,7 +519,6 @@ class MyButton(QToolButton):
 
     # 文件右键菜单
     def buttonContext(self):
-        print(self.buttonType)
         menu = QMenu()
         if self.buttonType != 'folder':
             menu.addAction(self.editMenu())

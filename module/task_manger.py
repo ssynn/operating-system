@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import (QApplication, QWidget,
 from PyQt5.QtGui import QIcon, QPainter, QColor
 from PyQt5.QtCore import Qt, QSize, pyqtSignal, QTimer
 import disk as mydisk
+import CPU_widget
 
 
 class TaskManger(QWidget):
@@ -16,16 +17,38 @@ class TaskManger(QWidget):
         self.initUI()
 
     def initUI(self):
+        self.content = QWidget()
+
+        self.cpuWidget = CPU_widget.CPUWidget()
+        self.cpuWidget.setParent(self.content)
+        self.cpuWidget.setVisible(True)
+        # self.cpuWidget.setStyleSheet('''
+        #     QWidget{
+        #         border: 1px solid black;
+        #     }
+        # ''')
+
+        self.diskPage = DiskPage()
+        self.diskPage.setParent(self.content)
+        self.diskPage.setVisible(False)
+
         self.body = QSplitter()
+        self.body.setFixedHeight(710)
+        self.body.setContentsMargins(0, 0, 0, 0)
+
         self.setLeftMunu()
-        self.content = None
+        self.body.addWidget(self.content)
+
         self.setContent()
 
         self.bodyLayout = QHBoxLayout()
         self.bodyLayout.addWidget(self.body)
+
         self.setLayout(self.bodyLayout)
         self.setWindowTitle('资源管理器')
+
         self.setFixedSize(1280, 720)
+        self.setContentsMargins(0, 0, 0, 0)
         self.setMyStyle()
         self.show()
 
@@ -41,44 +64,23 @@ class TaskManger(QWidget):
             lambda: self.switch(0, self.CPU))
         self.CPU.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
 
-        # 内存
-        self.memory = QToolButton()
-        self.memory.setText('内存')
-        self.memory.setFixedSize(160, 50)
-        self.memory.setIcon(QIcon('icon/memory.png'))
-        self.memory.setIconSize(QSize(40, 40))
-        self.memory.clicked.connect(lambda: self.switch(1, self.memory))
-        self.memory.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-
         # 磁盘
         self.disk = QToolButton()
         self.disk.setText('磁盘')
         self.disk.setFixedSize(160, 50)
         self.disk.setIcon(QIcon('icon/disk.png'))
         self.disk.setIconSize(QSize(40, 40))
-        self.disk.clicked.connect(lambda: self.switch(2, self.disk))
+        self.disk.clicked.connect(lambda: self.switch(1, self.disk))
         self.disk.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-
-        # 设备
-        # self.device = QToolButton()
-        # self.device.setText('设备')
-        # self.device.setFixedSize(160, 50)
-        # self.device.setIcon(QIcon('icon/device.png'))
-        # self.device.setIconSize(QSize(40, 40))
-        # self.device.clicked.connect(lambda: self.switch(3, self.device))
-        # self.device.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
 
         self.btnList = [
             self.CPU,
-            self.memory,
             self.disk
         ]
 
         self.layout = QVBoxLayout()
         self.layout.addWidget(self.CPU)
-        self.layout.addWidget(self.memory)
         self.layout.addWidget(self.disk)
-        # self.layout.addWidget(self.device)
         self.layout.addStretch()
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.layout.setSpacing(0)
@@ -101,25 +103,12 @@ class TaskManger(QWidget):
 
     # 设置右侧信息页
     def setContent(self):
-        # print(self.content)
-        if self.content is not None:
-            self.content.deleteLater()
-        # print(self.content)
         if self.focus == 0:
-            self.content = QWidget()
-            print(self.focus)
+            self.diskPage.setVisible(False)
+            self.cpuWidget.setVisible(True)
         elif self.focus == 1:
-            self.content = QWidget()
-            print(self.focus)
-        elif self.focus == 2:
-            self.content = DiskPage()
-            print(self.focus)
-            print(self.content)
-        else:
-            # self.content = Detial(self.stu_mes)
-            print(self.focus)
-        print(self.content)
-        self.body.addWidget(self.content)
+            self.cpuWidget.setVisible(False)
+            self.diskPage.setVisible(True)
 
     def setMyStyle(self):
         self.setStyleSheet('''
@@ -390,40 +379,6 @@ class BlockPainter(QWidget):
             else:
                 self.qp.setBrush(QColor('#D32F2F'))
             self.qp.drawRect(25*(i % 32)+5, 25*(i//32)+5, 20, 20)
-        self.qp.end()
-
-
-class BlockPainterD(QWidget):
-    def __init__(self, diskName: str):
-        return super().__init__()
-        self.diskName = diskName
-        self.setFixedSize(900, 200)
-        self.setStyleSheet('''
-            QWidget{
-                border: 1px solid black;
-            }
-        ''')
-        self.timer = QTimer(self)
-        self.timer.start(1000)
-        self.timer.timeout.connect(self.update)
-
-    def paintEvent(self, a0):
-        self.drawRectangles()
-
-    # 绘制磁盘占用块
-    def drawRectangles(self):
-        self.qp = QPainter()
-        self.qp.begin(self)
-        col = QColor(0, 0, 0)
-        col.setNamedColor("#d4d4d4")
-        self.qp.setPen(col)
-        table_c = mydisk.open_disk('d')[:2]
-        for i in range(128):
-            if table_c[i//64][i % 64] == 0:
-                self.qp.setBrush(QColor('#8bc34a'))
-            else:
-                self.qp.setBrush(QColor('#D32F2F'))
-            self.qp.drawRect(20*(i % 32)+5, 20*(i//32)+5, 15, 15)
         self.qp.end()
 
 

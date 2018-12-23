@@ -5,8 +5,8 @@ from PyQt5.QtWidgets import (
     QApplication, QWidget, QTextEdit, QGridLayout, QLabel, QTableWidgetItem, QTableWidget, QAbstractItemView,
     QHBoxLayout, QVBoxLayout, QToolButton, QMessageBox)
 from PyQt5.QtWidgets import QLineEdit
-from PyQt5.QtGui import QIcon, QPainter, QColor
-from PyQt5.QtCore import Qt, QSize, pyqtSignal, QTimer
+from PyQt5.QtGui import QPainter, QColor
+from PyQt5.QtCore import Qt, QTimer
 
 
 info = {
@@ -29,7 +29,8 @@ info = {
 class CPUWidget(QWidget):
     def __init__(self):
         super().__init__()
-        self.setFixedSize(1050, 700)
+        self.setFixedSize(1050, 650)
+        self.setContentsMargins(0, 0, 0, 0)
 
         self.body = QHBoxLayout()
 
@@ -145,7 +146,8 @@ class CPUWidget(QWidget):
             lambda: self.closeCPU(self.time.closeCPU)
         )
         self.time.restart.clicked.connect(self.restart)
-        self.cpuInfo.timeSlice.textChanged.connect(lambda: self.cpu.setTimeslice(self.cpuInfo.timeSlice.text()))
+        self.cpuInfo.timeSlice.textChanged.connect(
+            lambda: self.cpu.setTimeslice(self.cpuInfo.timeSlice.text()))
 
     def stop(self, btn: QToolButton):
         if self.timer.isActive():
@@ -527,7 +529,7 @@ class CPUInfo(QWidget):
     def __init__(self):
         super().__init__()
         self.body = QHBoxLayout()
-        self.setFixedSize(220, 300)
+        self.setFixedSize(220, 280)
         self.setLabels()
         self.setDataWidget()
         self.setLayout(self.body)
@@ -826,7 +828,7 @@ class DeviceStatus(QWidget):
 class OrdersDisplay(QTableWidget):
     def __init__(self):
         super().__init__(0, 1)
-        self.setFixedSize(150, 300)
+        self.setFixedSize(150, 280)
         self.verticalHeader().setVisible(False)
         self.horizontalHeader().setVisible(False)
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -868,8 +870,10 @@ class OrdersDisplay(QTableWidget):
 
     def setMyStyle(self):
         self.setStyleSheet('''
-            QWidget{
+            QTableWidget{
                 background-color: white;
+                border: 1px solid gray;
+                border-radius: 10px;
             }
             QLabel{
                 font-family: 微软雅黑;

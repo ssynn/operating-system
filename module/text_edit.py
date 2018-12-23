@@ -1,14 +1,15 @@
 import sys
-from PyQt5.QtWidgets import QWidget, QTextEdit, QGridLayout, QLineEdit, QApplication, QLabel, QPushButton, QMessageBox
+from PyQt5.QtWidgets import QWidget, QTextEdit, QGridLayout, QLineEdit, QApplication, QLabel, QToolButton, QMessageBox, QVBoxLayout, QHBoxLayout
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import pyqtSignal
 import disk
 
 
 class TextEdit(QWidget):
+
     after_close = pyqtSignal(dict)
 
-    def __init__(self, existList: list, mes: list = None, op: str = 'new'):
+    def __init__(self, existList: list = [], mes: list = None, op: str = 'new'):
         '''
         existList为当前目录的文件
         mes[0] 为文件名
@@ -20,51 +21,75 @@ class TextEdit(QWidget):
         self.setWindowIcon(QIcon('icon/text.ico'))
         self.setWindowTitle('文本编辑器')
         self.resize(600, 300)
-        self.body = QGridLayout()
+        self.setContentsMargins(0, 0, 0, 0)
+
         self.line = QLineEdit()
-        self.textArea = QTextEdit()
+        self.line.setFixedSize(200, 30)
+
         self.title = QLabel()
         self.title.setText('文件名')
-        self.body.addWidget(self.line, 0, 1, 1, 5)
-        self.body.addWidget(self.title, 0, 0)
-        self.body.addWidget(self.textArea, 1, 0, 1, 6)
 
-        self.confirm = QPushButton()
+        top = QHBoxLayout()
+        top.addWidget(self.title)
+        top.addWidget(self.line)
+        top.addStretch()
+
+        self.textArea = QTextEdit()
+        self.textArea.textChanged.connect(self.showTextLength)
+
+        self.textLength = QLabel()
+        self.textLength.setText('0 Byte')
+
+        self.confirm = QToolButton()
         self.confirm.setText('确认')
+        self.confirm.setFixedSize(80, 30)
         self.confirm.clicked.connect(self.confirmFunction)
-        self.cancel = QPushButton()
+
+        self.cancel = QToolButton()
         self.cancel.setText('取消')
+        self.cancel.setFixedSize(80, 30)
         self.cancel.clicked.connect(self.close)
 
-        self.body.addWidget(self.confirm, 2, 4)
-        self.body.addWidget(self.cancel, 2, 5)
+        bottom = QHBoxLayout()
+        bottom.addWidget(self.textLength)
+        bottom.addStretch()
+        bottom.addWidget(self.confirm)
+        bottom.addWidget(self.cancel)
+
+        self.body = QVBoxLayout()
+        self.body.setContentsMargins(0, 0, 0, 5)
+        self.body.addLayout(top)
+        self.body.addWidget(self.textArea)
+        self.body.addLayout(bottom)
+
         self.setLayout(self.body)
+
         if mes is not None:
             self.line.setText(mes[0])
             self.textArea.setText(mes[1])
             if mes[2] & 1 != 0:
                 self.textArea.setDisabled(True)
+
+        self.setMyStyle()
         self.show()
+
+    def showTextLength(self):
+        length = len(self.textArea.toPlainText().encode())
+        self.textLength.setText(str(length) + ' Byte')
 
     def confirmFunction(self):
         if self.op == 'new':
             for i in self.existList:
                 if i.text() == self.line.text():
-                    msgBox = QMessageBox(QMessageBox.Warning, "警告!", '文件名重复!', QMessageBox.NoButton, self)
-                    msgBox.addButton("确认", QMessageBox.AcceptRole)
-                    msgBox.exec_()
+                    self.errorBox('文件名重复!')
                     return
 
         if len(self.textArea.toPlainText().encode()) > 255:
-            msgBox = QMessageBox(QMessageBox.Warning, "警告!", '文件内容超过最大长度!', QMessageBox.NoButton, self)
-            msgBox.addButton("确认", QMessageBox.AcceptRole)
-            msgBox.exec_()
+            self.errorBox('文件内容超过最大长度!')
             return
 
         if not disk.is_file_name(self.line.text()):
-            msgBox = QMessageBox(QMessageBox.Warning, "警告!", '文件名不符合规范!', QMessageBox.NoButton, self)
-            msgBox.addButton("确认", QMessageBox.AcceptRole)
-            msgBox.exec_()
+            self.errorBox('文件名不符合规范!')
             return
 
         name, ext = disk.file_name_split(self.line.text())
@@ -77,6 +102,67 @@ class TextEdit(QWidget):
         }
         self.close()
         self.after_close.emit(ans)
+
+    # 错误提示框
+    def errorBox(self, mes: str):
+        msgBox = QMessageBox(
+            QMessageBox.Warning,
+            "警告!",
+            mes,
+            QMessageBox.NoButton,
+            self
+        )
+        msgBox.addButton("确认", QMessageBox.AcceptRole)
+        msgBox.exec_()
+
+    def setMyStyle(self):
+        self.setStyleSheet('''
+            QWidget{
+                background-color: white;
+            }
+            QTextEdit{
+                border-top:1px solid #ECECEC;
+                border-bottom: 1px solid #ECECEC;
+            }
+            QToolButton{
+                border: 0px;
+                font-family: 微软雅黑;
+                font-size: 15px;
+                border-radius: 5px;
+                color: white;
+            }
+            QLineEdit{
+                border-radius: 5px;
+                border: 1px solid #9E9E9E;
+            }
+        ''')
+        self.title.setStyleSheet('''
+            *{
+                font-family: 微软雅黑;
+                font-size: 20px;
+                border: 0px;
+                margin-left: 5px;
+            }
+        ''')
+        self.textLength.setStyleSheet('''
+            *{
+                border: 0px;
+                font-family: 微软雅黑;
+                font-size: 20px;
+                margin-left: 5px;
+            }
+        ''')
+        self.confirm.setStyleSheet('''
+            *{
+                background: #448AFF;
+            }
+        ''')
+        self.cancel.setStyleSheet('''
+            *{
+                background: #D32F2F;
+                margin-right: 5px;
+            }
+        ''')
 
 
 if __name__ == '__main__':

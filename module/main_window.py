@@ -3,7 +3,7 @@ import explorer
 import terminal
 import task_manger
 from PyQt5.QtWidgets import (QWidget, QToolButton, QApplication, QMainWindow,
-                             QGridLayout, QSplitter)
+                             QGridLayout, QSplitter, QMessageBox)
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QSize, QTimer, QDateTime
 
@@ -12,6 +12,8 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.startMenuWidget = None
+        self.task = None
+        self.exp = None
         self.initUI()
 
     def initUI(self):
@@ -164,12 +166,14 @@ class MainWindow(QMainWindow):
     # 文件管理器关闭
     def explorerCloseEvent(self):
         self.explorerButton.setStyleSheet('''''')
+        self.exp = None
 
     # 资源管理器关闭
     def taskManagerCloseEvent(self):
         self.taskMangerButton.setStyleSheet('''''')
+        self.task = None
 
-    # TODO 开启任务管理器
+    # 开启任务管理器
     def taskMangerStart(self):
         self.taskMangerButton.setStyleSheet('''
             QToolButton{
@@ -177,10 +181,10 @@ class MainWindow(QMainWindow):
                 background-color: rgba(50, 50, 50);
             }
         ''')
-        exp = task_manger.TaskManger()
-        exp.after_close_signal.connect(self.taskManagerCloseEvent)
+        self.task = task_manger.TaskManger()
+        self.task.after_close_signal.connect(self.taskManagerCloseEvent)
 
-    # TODO 开启文件管理器
+    # 开启文件管理器
     def explorerStart(self):
         self.explorerButton.setStyleSheet('''
             QToolButton{
@@ -188,8 +192,15 @@ class MainWindow(QMainWindow):
                 background-color: rgba(50, 50, 50);
             }
         ''')
-        exp = explorer.Explorer()
-        exp.after_close_signal.connect(self.explorerCloseEvent)
+        self.exp = explorer.Explorer(self)
+        self.exp.after_close_signal.connect(self.explorerCloseEvent)
+
+    # 执行程序
+    def execute(self, orders: str):
+        if self.task is None:
+            self.errorBox('请打开任务管理器页面！')
+            return
+        self.task.cpuWidget.createProgram(orders)
 
     # 打开终端
     def terminalStart(self):
@@ -199,6 +210,18 @@ class MainWindow(QMainWindow):
     # TODO 时间详情
     def timeWidget(self):
         print('time')
+
+    # 错误提示框
+    def errorBox(self, mes: str):
+        msgBox = QMessageBox(
+                QMessageBox.Warning,
+                "警告!",
+                mes,
+                QMessageBox.NoButton,
+                self
+            )
+        msgBox.addButton("确认", QMessageBox.AcceptRole)
+        msgBox.exec_()
 
     def setMyStyle(self):
         self.menuBar.setStyleSheet('''
