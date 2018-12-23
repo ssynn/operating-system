@@ -390,6 +390,11 @@ class FileWidget(QWidget):
     # 粘贴
     def pasetFunction(self):
         # print('paset', self.clipboard)
+        name = mydisk.join_name(self.clipboard['name'], self.clipboard['ext'])
+        for i in self.buttonList:
+            if i.text() == name:
+                self.errorBox('存在同名文件或文件夹!')
+                return
         if self.path.find(self.clipboard['path']) == 0:
             self.errorBox('目标文件夹存在于原文件夹内')
             return
@@ -489,10 +494,10 @@ class MyButton(QToolButton):
             self.buttonType = 'exe'
         self.setMyStyle()
 
-    # TODO 双击
+    # 双击
     def mouseDoubleClickEvent(self, e):
         # print(self.buttonType, self.info)
-        # TODO 可执行文件双击方法, 运行程序
+        # 可执行文件双击方法, 运行程序
         if self.buttonType == 'exe':
             _file = mydisk.open_file(self.info['path'])
             if not _file:
@@ -732,6 +737,7 @@ class AttributeBox(QWidget):
 def main():
     app = QApplication(sys.argv)
     ex = Explorer()
+    ex.show()
     sys.exit(app.exec_())
 
 

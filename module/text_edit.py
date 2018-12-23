@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QWidget, QTextEdit, QGridLayout, QLineEdit, QApplication, QLabel, QToolButton, QMessageBox, QVBoxLayout, QHBoxLayout
+from PyQt5.QtWidgets import QWidget, QTextEdit, QLineEdit, QApplication, QLabel, QToolButton, QMessageBox, QVBoxLayout, QHBoxLayout
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import pyqtSignal
 import disk
@@ -125,11 +125,9 @@ class TextEdit(QWidget):
                 border-bottom: 1px solid #ECECEC;
             }
             QToolButton{
-                border: 0px;
                 font-family: 微软雅黑;
                 font-size: 15px;
                 border-radius: 5px;
-                color: white;
             }
             QLineEdit{
                 border-radius: 5px;
@@ -153,14 +151,24 @@ class TextEdit(QWidget):
             }
         ''')
         self.confirm.setStyleSheet('''
-            *{
+            QToolButton{
+                color: #448AFF;
+                border: 1px solid #448AFF;
+            }
+            QToolButton:hover{
                 background: #448AFF;
+                color: white;
             }
         ''')
         self.cancel.setStyleSheet('''
-            *{
-                background: #D32F2F;
+            QToolButton{
+                color: #D32F2F;
+                border: 1px solid #D32F2F;
                 margin-right: 5px;
+            }
+            QToolButton:hover{
+                background: #D32F2F;
+                color: white;
             }
         ''')
 
