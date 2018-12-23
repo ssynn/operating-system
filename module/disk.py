@@ -321,8 +321,8 @@ def move_file(path: str, new_path: str) -> bool:
     if not _file:
         return False
     _file['path'] = new_path
-    if delete_file(path):
-        return create_file(_file)
+    if create_file(_file):
+        return delete_file(path)
     return False
 
 

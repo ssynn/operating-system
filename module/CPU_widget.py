@@ -867,6 +867,7 @@ class OrdersDisplay(QTableWidget):
                         color: #212121;
                     }
                 ''')
+        self.verticalScrollBar().setSliderPosition(pc // 4 - 4)
 
     def setMyStyle(self):
         self.setStyleSheet('''
