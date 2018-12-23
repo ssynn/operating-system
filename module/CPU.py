@@ -71,6 +71,7 @@ class CPU():
 
         # io中断
         if self._PSW[1] == 1:
+
             # 有进程申请内存
             if self._request:
                 self._running_process.device = self._DR
@@ -82,12 +83,14 @@ class CPU():
                 # 没有成功申请到设备
                 else:
                     self._running_process.cause = 1
+
                 self.block()
-                self._request = None
+                self._request = False
 
             # 唤醒需要唤醒的进程
             for i in self._need_wake:
                 self.wake(i)
+            self._need_wake = []
 
             # 只有当时间片没有用完而且当前运行进程为空才进行调度
             if self._PSW[2] == 0 and self._running_process is None:
@@ -402,16 +405,21 @@ class PCB():
         1 未申请到IO设备阻塞
         2 占用IO设备阻塞
         '''
+        # PCB固有属性
         self.status = 0
         self.cause = 0
         self.id = None
         self.page_address = None
         self.length = None
+
+        # 寄存器数据
         self.EAX = 0
         self.DR = 0
         self.IR = None
         self.PSW = [0, 0, 0]
         self.PC = 0
+
+        # 运行时状态数据
         self.varDict = dict()
         self.device = None
         self.enqueueTime = 0

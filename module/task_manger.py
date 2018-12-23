@@ -17,6 +17,7 @@ class TaskManger(QWidget):
         self.initUI()
 
     def initUI(self):
+        self.setWindowIcon(QIcon('icon/task.png'))
         self.content = QWidget()
 
         self.cpuWidget = CPU_widget.CPUWidget()
@@ -155,6 +156,7 @@ class DiskPage(QWidget):
         super().__init__()
         self.labelList = []
         self.initUI()
+        self.setContentsMargins(100, 0, 0, 0)
 
     def initUI(self):
         self.title = QLabel()

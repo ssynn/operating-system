@@ -127,7 +127,7 @@ class CPUWidget(QWidget):
 
     def createProgram(self, orders: str):
         if self.order_check(orders):
-            if not self.cpu.create(orders):
+            if not self.cpu.create(orders.strip(';')):
                 self.errorBox('创建失败')
             else:
                 msgBox = QMessageBox(
@@ -238,14 +238,19 @@ class CPUWidget(QWidget):
             r'[ABC]\d\d',
             r'end.'
         ]
+        if orders.count('end.') > 1:
+            self.errorBox('结束语只能有一句！')
+            return False
         exists_val = set()
         orders = orders.strip(';').split(';')
         if orders[-1] != 'end.':
             self.errorBox('结尾必须为终止语句!')
             return False
-        # print(orders)
+        print(orders)
         for index, order in enumerate(orders):
-            # print(order, exists_val)
+            if len(order) == 0:
+                self.errorBox('未定义的错误！')
+                return False
             if re.fullmatch(patterns[0], order):
                 exists_val.add(order[0])
                 continue
@@ -508,7 +513,7 @@ class AnswerQueue(QTableWidget):
     # 把新的结果插入队列
     def refresh(self, pcb, time):
         if pcb:
-            self.addPCB(pcb.id, time-pcb.start, str(pcb.varDict))
+            self.addPCB(pcb.id, time-pcb.start-1, str(pcb.varDict))
 
     # 清空结果队列
     def init(self):
@@ -583,7 +588,7 @@ class CPUInfo(QWidget):
         # 时间片显示以及调整
         self.timeSlice = QLineEdit()
         self.timeSlice.setText('5')
-        self.timeSlice.setFixedSize(40, 35)
+        self.timeSlice.setFixedSize(40, 30)
 
         self.PSW = QLabel()
         self.PSW.setText('100')

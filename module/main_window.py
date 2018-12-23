@@ -181,6 +181,9 @@ class MainWindow(QMainWindow):
                 background-color: rgba(50, 50, 50);
             }
         ''')
+        if self.task is not None:
+            self.task.raise_()
+            return
         self.task = task_manger.TaskManger()
         self.task.after_close_signal.connect(self.taskManagerCloseEvent)
 
@@ -192,6 +195,9 @@ class MainWindow(QMainWindow):
                 background-color: rgba(50, 50, 50);
             }
         ''')
+        if self.exp is not None:
+            self.exp.raise_()
+            return
         self.exp = explorer.Explorer(self)
         self.exp.after_close_signal.connect(self.explorerCloseEvent)
 
