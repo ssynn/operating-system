@@ -110,6 +110,7 @@ class Explorer(QWidget):
         # 加入左侧树和右侧文件浏览图标
         self.fileView.addWidget(self.leftTree)
         self.fileView.addWidget(self.rightWidget)
+        self.fileView.setStretchFactor(1, 11)
 
         # 把文件浏览部分加入主体
         self.mainContent.addWidget(self.fileView, 1, 0, 10, 10)
@@ -180,7 +181,6 @@ class MyTreeView(QTreeWidget):
         self.setHeaderHidden(True)
         self.setColumnCount(1)
         self.setMinimumWidth(200)
-        self.setMaximumWidth(200)
         self.setStyleSheet('''
             QTreeWidget{
                 border: 0px;
