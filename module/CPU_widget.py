@@ -139,6 +139,7 @@ class CPUWidget(QWidget):
                 )
                 msgBox.addButton("确认", QMessageBox.AcceptRole)
                 msgBox.exec_()
+                self.refresh(self.cpu.get_info())
 
     def setFunction(self):
         self.time.stop.clicked.connect(lambda: self.stop(self.time.stop))
@@ -238,6 +239,9 @@ class CPUWidget(QWidget):
             r'[ABC]\d\d',
             r'end.'
         ]
+        if len(orders) > 255:
+            self.errorBox('超过程序最大长度255Byte！')
+            return False
         if orders.count('end.') > 1:
             self.errorBox('结束语只能有一句！')
             return False
