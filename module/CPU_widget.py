@@ -31,6 +31,7 @@ class CPUWidget(QWidget):
         super().__init__()
         self.setFixedSize(1050, 650)
         self.setContentsMargins(0, 0, 0, 0)
+        self.interval = 1000
 
         self.body = QHBoxLayout()
 
@@ -50,7 +51,7 @@ class CPUWidget(QWidget):
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.run)
-        self.timer.start(1000)
+        self.timer.start(self.interval)
 
     def run(self):
         info = self.cpu.run()
@@ -60,14 +61,17 @@ class CPUWidget(QWidget):
     def setTables(self):
         readyLabel = QLabel()
         readyLabel.setText('就绪队列')
+        readyLabel.setFixedWidth(250)
         self.ready = ReadyQueue()
 
         blockLabel = QLabel()
         blockLabel.setText('阻塞队列')
+        blockLabel.setFixedWidth(250)
         self.block = BlockQueue()
 
         answerLabel = QLabel()
         answerLabel.setText('结果')
+        answerLabel.setFixedWidth(250)
         self.answer = AnswerQueue()
 
         self.tables = QVBoxLayout()
@@ -79,6 +83,7 @@ class CPUWidget(QWidget):
         self.tables.addWidget(self.answer)
         self.tablesWidget = QWidget()
         self.tablesWidget.setLayout(self.tables)
+        self.tablesWidget.setFixedWidth(300)
         self.body.addWidget(self.tablesWidget)
 
     def setMiddle(self):
@@ -110,6 +115,7 @@ class CPUWidget(QWidget):
 
         self.mWidget = QWidget()
         self.mWidget.setLayout(self.mLayout)
+        self.mWidget.setFixedWidth(430)
 
         self.body.addWidget(self.mWidget)
 
@@ -121,8 +127,11 @@ class CPUWidget(QWidget):
         self.rLayout = QVBoxLayout()
         self.rLayout.addWidget(self.time)
         self.rLayout.addWidget(self.device)
+        self.rLayout.addSpacing(50)
+        self.rLayout.setContentsMargins(0, 0, 0, 0)
         self.rWidget = QWidget()
         self.rWidget.setLayout(self.rLayout)
+        self.rWidget.setContentsMargins(0, 0, 0, 0)
         self.body.addWidget(self.rWidget)
 
     def createProgram(self, orders: str):
@@ -147,12 +156,20 @@ class CPUWidget(QWidget):
             lambda: self.closeCPU(self.time.closeCPU)
         )
         self.time.restart.clicked.connect(self.restart)
+        self.time.nextStep.clicked.connect(self.run)
+        self.time.speedUp.clicked.connect(self.speedUp)
         self.cpuInfo.timeSlice.textChanged.connect(
             lambda: self.cpu.setTimeslice(self.cpuInfo.timeSlice.text()))
 
     def stop(self, btn: QToolButton):
         if self.timer.isActive():
             self.timer.stop()
+            self.time.nextStep.setDisabled(False)
+            self.time.nextStep.setStyleSheet('''
+                *{
+                    background-color: #673AB7;
+                }
+            ''')
             btn.setText('继续')
             btn.setStyleSheet('''
                 QToolButton{
@@ -160,7 +177,13 @@ class CPUWidget(QWidget):
                 }
             ''')
         else:
-            self.timer.start(1000)
+            self.timer.start(self.interval)
+            self.time.nextStep.setDisabled(True)
+            self.time.nextStep.setStyleSheet('''
+                *{
+                    background-color: #BDBDBD;
+                }
+            ''')
             btn.setText('暂停')
             btn.setStyleSheet('''
                 QToolButton{
@@ -169,6 +192,12 @@ class CPUWidget(QWidget):
             ''')
 
     def closeCPU(self, btn: QToolButton):
+        self.time.nextStep.setDisabled(True)
+        self.time.nextStep.setStyleSheet('''
+            *{
+                background-color: #BDBDBD;
+            }
+        ''')
         if self.timer.isActive():
             self.timer.stop()
             self.cpu.off()
@@ -190,7 +219,7 @@ class CPUWidget(QWidget):
             ''')
 
         else:
-            self.timer.start(1000)
+            self.timer.start(self.interval)
             self.time.stop.setDisabled(False)
             self.time.stop.setText('暂停')
             self.time.stop.setStyleSheet('''
@@ -209,6 +238,7 @@ class CPUWidget(QWidget):
         self.cpu.off()
         self.refresh(self.cpu.get_info())
         self.answer.init()
+
         self.time.stop.setDisabled(False)
         self.time.stop.setText('暂停')
         self.time.stop.setStyleSheet('''
@@ -216,14 +246,37 @@ class CPUWidget(QWidget):
                 background-color: #FF9800;
             }
         ''')
+
         self.time.closeCPU.setText('关机')
         self.time.closeCPU.setStyleSheet('''
             QToolButton{
                 background-color: #FF5252;
             }
         ''')
+
+        self.time.nextStep.setDisabled(True)
+        self.time.nextStep.setStyleSheet('''
+            *{
+                background-color: #BDBDBD;
+            }
+        ''')
+
         if not self.timer.isActive():
-            self.timer.start(1000)
+            self.timer.start(self.interval)
+
+    def speedUp(self):
+        if self.interval == 250:
+            self.interval = 1000
+            self.time.speedUp.setText('1.0X')
+        elif self.interval == 1000:
+            self.interval //= 2
+            self.time.speedUp.setText('2.0X')
+        else:
+            self.interval //= 2
+            self.time.speedUp.setText('4.0X')
+        if self.timer.isActive():
+            self.timer.stop()
+            self.timer.start(self.interval)
 
     def order_check(self, orders: str) -> bool:
         """
@@ -300,6 +353,7 @@ class CPUWidget(QWidget):
         self.setStyleSheet('''
             QWidget{
                 background-color: white;
+                /*border: 1px solid black;*/
             }
             QTextEdit{
                 border: 1px solid #BDBDBD;
@@ -335,13 +389,16 @@ class BlockPainter(QWidget):
                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         self.runningBlocks = []
         systemBlocks = QLabel()
-        systemBlocks.setText('系统')
+        systemBlocks.setText('占用')
+        systemBlocks.setFixedSize(50, 70)
 
         empty = QLabel()
         empty.setText('空闲')
+        empty.setFixedSize(50, 70)
 
         running = QLabel()
         running.setText('运行')
+        running.setFixedSize(50, 70)
 
         self.body = QGridLayout()
         self.body.addWidget(systemBlocks, 0, 0)
@@ -386,11 +443,11 @@ class BlockPainter(QWidget):
             self.qp.drawRect(25*(i % 16)+5, 25*(i//16)+5, 20, 20)
 
         self.qp.setBrush(QColor('#D32F2F'))
-        self.qp.drawRect(70, 65, 20, 20)
+        self.qp.drawRect(130, 65, 20, 20)
         self.qp.setBrush(QColor('#8bc34a'))
-        self.qp.drawRect(200, 65, 20, 20)
+        self.qp.drawRect(240, 65, 20, 20)
         self.qp.setBrush(QColor('#2196F3'))
-        self.qp.drawRect(330, 65, 20, 20)
+        self.qp.drawRect(350, 65, 20, 20)
         self.qp.end()
 
 
@@ -648,7 +705,7 @@ class CPUInfo(QWidget):
 class TimeBlock(QWidget):
     def __init__(self):
         super().__init__()
-        self.setFixedSize(250, 150)
+        self.setFixedSize(250, 170)
 
         self.title = QLabel()
         self.title.setText('总运行时间')
@@ -668,12 +725,24 @@ class TimeBlock(QWidget):
         self.restart.setText('重启')
         self.restart.setFixedSize(60, 30)
 
+        self.nextStep = QToolButton()
+        self.nextStep.setText('单步运行')
+        self.nextStep.setDisabled(True)
+        self.nextStep.setFixedSize(140, 30)
+
+        self.speedUp = QToolButton()
+        self.speedUp.setText('1.0X')
+        self.speedUp.setFixedSize(60, 30)
+
         self.body = QGridLayout()
         self.body.addWidget(self.title, 0, 0, 1, 3)
         self.body.addWidget(self.time, 1, 0, 1, 3)
         self.body.addWidget(self.stop, 2, 0, 1, 1)
         self.body.addWidget(self.closeCPU, 2, 1, 1, 1)
         self.body.addWidget(self.restart, 2, 2, 1, 1)
+        self.body.addWidget(self.nextStep, 3, 0, 1, 2)
+        self.body.addWidget(self.speedUp, 3, 2, 1, 1)
+
         self.setLayout(self.body)
         self.setMystyle()
 
@@ -724,12 +793,22 @@ class TimeBlock(QWidget):
                 background-color: #8BC34A;
             }
         ''')
+        self.speedUp.setStyleSheet('''
+            *{
+                background-color: #00BCD4;
+            }
+        ''')
+        self.nextStep.setStyleSheet('''
+            *{
+                background-color: #BDBDBD;
+            }
+        ''')
 
 
 class DeviceStatus(QWidget):
     def __init__(self):
         super().__init__()
-        self.setFixedSize(252, 430)
+        self.setFixedSize(252, 400)
         self.body = QVBoxLayout()
         self.body.addSpacing(100)
         self.devices = []
@@ -882,8 +961,7 @@ class OrdersDisplay(QTableWidget):
         self.setStyleSheet('''
             QTableWidget{
                 background-color: white;
-                border: 1px solid gray;
-                border-radius: 10px;
+                border: 1px solid #BDBDBD;
             }
             QLabel{
                 font-family: 微软雅黑;
