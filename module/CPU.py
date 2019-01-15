@@ -160,6 +160,8 @@ class CPU():
         self._running_process.status = 1
         self._running_process.cause = 0
 
+        self._remaining_time = self._timeslice
+
     # 创建进程
     def create(self, orders: str) -> bool:
         '''

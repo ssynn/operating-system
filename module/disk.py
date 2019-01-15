@@ -215,9 +215,9 @@ def modify_file(path: str, info: dict) -> bool:
     # _file = open_file(path)
     # if not _file:
     #     return False
-    if delete_file(path):
+    if create_file(info):
         info['path'] = cut_path(path)[0]
-        return create_file(info)
+        return delete_file(path)
     return False
 
 

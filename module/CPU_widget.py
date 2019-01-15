@@ -1,6 +1,6 @@
+import re
 import sys
 import CPU
-import re
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QTextEdit, QGridLayout, QLabel, QTableWidgetItem, QTableWidget, QAbstractItemView,
     QHBoxLayout, QVBoxLayout, QToolButton, QMessageBox)

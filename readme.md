@@ -41,4 +41,28 @@
 * 进程调度
 * 进程控制
 
+# 几乎照抄了微软爸爸的界面，希望不会被查水表（/TДT)/（/TДT)/
 
+### 桌面
+
+<img src="https://github.com/ssynn/operating-system/blob/master/screenshots/4.jpg" width="100%" height="100%">
+
+### 文件管理器
+
+<img src="https://github.com/ssynn/operating-system/blob/master/screenshots/2.jpg" width="100%" height="100%">
+
+### 命令接口
+
+<img src="https://github.com/ssynn/operating-system/blob/master/screenshots/5.jpg" width="100%" height="100%">
+
+### 文本编辑器
+
+<img src="https://github.com/ssynn/operating-system/blob/master/screenshots/3.jpg" width="100%" height="100%">
+
+### 磁盘状态
+
+<img src="https://github.com/ssynn/operating-system/blob/master/screenshots/7.jpg" width="100%" height="100%">
+
+### 进程和设备管理
+
+<img src="https://github.com/ssynn/operating-system/blob/master/screenshots/6.jpg" width="100%" height="100%">
